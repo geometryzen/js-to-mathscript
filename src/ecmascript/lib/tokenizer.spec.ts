@@ -1,4 +1,4 @@
-import { IToken } from './token';
+import { TokenEntry } from './token';
 import { Config, Tokenizer } from './tokenizer';
 
 describe('tokenizer', function () {
@@ -10,7 +10,7 @@ describe('tokenizer', function () {
                 const tokenizer = new Tokenizer(code, config);
                 expect(tokenizer).toBeDefined();
 
-                let token: IToken;
+                let token: TokenEntry;
 
                 token = tokenizer.getNextToken();
                 expect(token.type).toBe('Keyword');
@@ -41,7 +41,7 @@ describe('tokenizer', function () {
                 const tokenizer = new Tokenizer(code, config);
                 expect(tokenizer).toBeDefined();
 
-                let token: IToken;
+                let token: TokenEntry;
 
                 token = tokenizer.getNextToken();
                 expect(token.type).toBe('Keyword');
@@ -77,7 +77,7 @@ describe('tokenizer', function () {
                 const tokenizer = new Tokenizer(code, config);
                 expect(tokenizer).toBeDefined();
 
-                let token: IToken;
+                let token: TokenEntry;
 
                 token = tokenizer.getNextToken();
                 expect(token).toEqual({

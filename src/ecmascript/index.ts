@@ -19,6 +19,8 @@ export {
     AsyncFunctionDeclaration,
     AsyncFunctionExpression,
     AwaitExpression,
+    BaseNode,
+    BaseNodeWithoutComments,
     BinaryExpression,
     BinaryOperator,
     BindingIdentifier,
@@ -67,7 +69,7 @@ export {
     MethodDefinition,
     Module,
     NewExpression,
-    Node,
+
     ObjectExpression,
     ObjectExpressionProperty,
     ObjectPattern,

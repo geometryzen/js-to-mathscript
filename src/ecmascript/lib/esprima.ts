@@ -27,7 +27,7 @@ import { JSXParser } from './jsx-parser';
 import { MetaData } from './MetaData';
 import { Module, Script } from './nodes';
 import { Parser } from './parser';
-import { IToken } from './token';
+import { TokenEntry } from './token';
 import { Config, Tokenizer } from './tokenizer';
 
 export interface ParseOptions {
@@ -49,13 +49,13 @@ export interface ParseOptions {
 }
 
 export interface ParseDelegate {
-    (node: IToken, metadata?: MetaData): IToken;
+    (node: TokenEntry, metadata?: MetaData): TokenEntry;
 }
 
 export function parse(code: string, options?: ParseOptions, delegate?: ParseDelegate): Module | Script {
     let commentHandler: CommentHandler | null = null;
-    const proxyDelegate: ParseDelegate = (node: IToken, metadata: MetaData) => {
-        const token: IToken = delegate ? delegate(node, metadata) : node;
+    const proxyDelegate: ParseDelegate = (node: TokenEntry, metadata: MetaData) => {
+        const token: TokenEntry = delegate ? delegate(node, metadata) : node;
         if (commentHandler) {
             commentHandler.visit(node, metadata);
         }
@@ -113,10 +113,10 @@ export function parseScript(code: string, options: ParseOptions = {}, delegate: 
     return parse(code, options, delegate);
 }
 
-export function tokenize(code: string, options: Config, delegate?: ParseDelegate): IToken[] {
+export function tokenize(code: string, options: Config, delegate?: ParseDelegate): TokenEntry[] {
     const tokenizer = new Tokenizer(code, options);
 
-    const tokens: IToken[] = [];
+    const tokens: TokenEntry[] = [];
 
     try {
         // eslint-disable-next-line no-constant-condition

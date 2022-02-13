@@ -402,7 +402,7 @@ function escapeDirective(str) {
     return quote + str + quote;
 }
 
-function escapeString(str) {
+function escapeString(str: string) {
     var result = '',
         i,
         len,

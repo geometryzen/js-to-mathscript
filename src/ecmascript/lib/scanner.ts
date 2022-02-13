@@ -106,7 +106,7 @@ export class Scanner {
         }
 
         while (!this.eof()) {
-            let ch = this.source.charCodeAt(this.index);
+            const ch = this.source.charCodeAt(this.index);
             ++this.index;
             if (Character.isLineTerminator(ch)) {
                 if (this.trackComment) {
@@ -355,9 +355,9 @@ export class Scanner {
         let cp = this.source.charCodeAt(i);
 
         if (cp >= 0xd800 && cp <= 0xdbff) {
-            let second = this.source.charCodeAt(i + 1);
+            const second = this.source.charCodeAt(i + 1);
             if (second >= 0xdc00 && second <= 0xdfff) {
-                let first = cp;
+                const first = cp;
                 cp = (first - 0xd800) * 0x400 + second - 0xdc00 + 0x10000;
             }
         }
@@ -875,13 +875,14 @@ export class Scanner {
                                 str += unescaped;
                             }
                             break;
-                        case 'x':
+                        case 'x': {
                             const unescaped = this.scanHexEscape(ch);
                             if (unescaped === null) {
                                 this.throwUnexpectedToken(Messages.InvalidHexEscapeSequence);
                             }
                             str += unescaped;
                             break;
+                        }
                         case 'n':
                             str += '\n';
                             break;
@@ -952,9 +953,9 @@ export class Scanner {
     scanTemplate(): RawToken {
         let cooked = '';
         let terminated = false;
-        let start = this.index;
+        const start = this.index;
 
-        let head = this.source[start] === '`';
+        const head = this.source[start] === '`';
         let tail = false;
         let rawOffset = 2;
 
@@ -1003,13 +1004,14 @@ export class Scanner {
                                 }
                             }
                             break;
-                        case 'x':
+                        case 'x': {
                             const unescaped = this.scanHexEscape(ch);
                             if (unescaped === null) {
                                 this.throwUnexpectedToken(Messages.InvalidHexEscapeSequence);
                             }
                             cooked += unescaped;
                             break;
+                        }
                         case 'b':
                             cooked += '\b';
                             break;
@@ -1086,7 +1088,6 @@ export class Scanner {
         // pattern that would not be detected by this substitution.
         const astralSubstitute = '\uFFFF';
         let tmp = pattern;
-        let self = this;
 
         if (flags.indexOf('u') >= 0) {
             tmp = tmp
@@ -1097,7 +1098,7 @@ export class Scanner {
                 .replace(/\\u\{([0-9a-fA-F]+)\}|\\u([a-fA-F0-9]{4})/g, (_$0, $1, $2) => {
                     const codePoint = parseInt($1 || $2, 16);
                     if (codePoint > 0x10ffff) {
-                        self.throwUnexpectedToken(Messages.InvalidRegExp);
+                        this.throwUnexpectedToken(Messages.InvalidRegExp);
                     }
                     if (codePoint <= 0xffff) {
                         return String.fromCharCode(codePoint);

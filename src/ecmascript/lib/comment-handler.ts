@@ -17,7 +17,7 @@ interface Entry {
 }
 
 interface NodeInfo {
-    node: any;
+    node: VisitableNode;
     start: number;
 }
 
@@ -47,7 +47,7 @@ export class CommentHandler {
         this.trailing = [];
     }
 
-    insertInnerComments(node: VisitableNode, metadata: MetaData) {
+    insertInnerComments(node: VisitableNode, metadata: MetaData): void {
         //  innnerComments for properties empty block
         //  `function a() {/** comments **\/}`
         if (node.type === Syntax.BlockStatement && node.body.length === 0) {
@@ -66,7 +66,7 @@ export class CommentHandler {
         }
     }
 
-    findTrailingComments(metadata: MetaData) {
+    findTrailingComments(metadata: MetaData): Comment[] {
         let trailingComments: Comment[] = [];
 
         if (this.trailing.length > 0) {
@@ -91,7 +91,7 @@ export class CommentHandler {
         return trailingComments;
     }
 
-    findLeadingComments(metadata: MetaData) {
+    findLeadingComments(metadata: MetaData): Comment[] {
         const leadingComments: Comment[] = [];
 
         let target: { leadingComments: Comment[] };
@@ -130,7 +130,7 @@ export class CommentHandler {
         return leadingComments;
     }
 
-    visitNode(node: VisitableNode, metadata: MetaData) {
+    visitNode(node: VisitableNode, metadata: MetaData): void {
         if (node.type === Syntax.Program && node.body.length > 0) {
             return;
         }
@@ -153,7 +153,7 @@ export class CommentHandler {
 
     visitComment(node: VisitableNode, metadata: MetaData): void {
         const type = node.type[0] === 'L' ? 'Line' : 'Block';
-        let comment: Comment = {
+        const comment: Comment = {
             type: type,
             value: node.value,
         };
@@ -166,7 +166,7 @@ export class CommentHandler {
         this.comments.push(comment);
 
         if (this.attach) {
-            let entry: Entry = {
+            const entry: Entry = {
                 comment: {
                     type: type,
                     value: node.value,
@@ -183,7 +183,7 @@ export class CommentHandler {
         }
     }
 
-    visit(node, metadata: MetaData) {
+    visit(node: VisitableNode, metadata: MetaData): void {
         if (node.type === 'LineComment') {
             this.visitComment(node, metadata);
         } else if (node.type === 'BlockComment') {

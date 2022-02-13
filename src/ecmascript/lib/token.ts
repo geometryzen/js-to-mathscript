@@ -23,6 +23,7 @@ export const enum Token {
 /**
  * A string may be a bit imprecise, but we also have to allow for identifiers.
  * A possibility may be to split the value into two fields?
+ * The scanner puts numbers in this type.
  */
 export type RawTokenValue = string | number | null;
 
@@ -45,7 +46,7 @@ export interface RawToken {
     end: number;
 }
 
-export let TokenName: { [token: number]: string } = {};
+export const TokenName: { [token: number]: string } = {};
 TokenName[Token.BooleanLiteral] = 'Boolean';
 TokenName[Token.EOF] = '<end>';
 TokenName[Token.Identifier] = 'Identifier';
@@ -63,8 +64,8 @@ TokenName[Token.JSXText] = 'JSXText';
  * RawToken is converted into IToken by the parser.ts convertToken() function.
  * Hence, this could be called a ParserToken.
  */
-export interface IToken {
-    type?: number | 'BlockComment' | 'LineComment';
+export interface TokenEntry {
+    type?: string | number | 'BlockComment' | 'LineComment';
     value?: number | string;
     lineNumber?: number;
     lineStart?: number;

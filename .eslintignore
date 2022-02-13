@@ -1,2 +1,10 @@
 node_modules
 build
+#===================================
+# FIXME
+src/ecmascript/lib/character.ts
+src/ecmascript/lib/code.ts
+src/ecmascript/lib/escodegen.ts
+src/ecmascript/lib/parser.ts
+src/ecmascript/lib/estraverse.ts
+src/ecmascript/lib/jsx-parser.ts

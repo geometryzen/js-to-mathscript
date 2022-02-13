@@ -90,19 +90,18 @@ function isRestrictedWord(id: string): boolean {
 }
 
 function isIdentifierNameES5(id: string): boolean {
-    var i, iz, ch;
 
     if (id.length === 0) {
         return false;
     }
 
-    ch = id.charCodeAt(0);
+    const ch = id.charCodeAt(0);
     if (!isIdentifierStartES5(ch)) {
         return false;
     }
 
-    for (i = 1, iz = id.length; i < iz; ++i) {
-        ch = id.charCodeAt(i);
+    for (let i = 1, iz = id.length; i < iz; ++i) {
+        const ch = id.charCodeAt(i);
         if (!isIdentifierPartES5(ch)) {
             return false;
         }
@@ -115,21 +114,20 @@ function decodeUtf16(lead: number, trail: number): number {
 }
 
 function isIdentifierNameES6(id: string): boolean {
-    var i, iz, ch, lowCh, check;
 
     if (id.length === 0) {
         return false;
     }
 
-    check = isIdentifierStartES6;
-    for (i = 0, iz = id.length; i < iz; ++i) {
-        ch = id.charCodeAt(i);
+    let check = isIdentifierStartES6;
+    for (let i = 0, iz = id.length; i < iz; ++i) {
+        let ch = id.charCodeAt(i);
         if (0xd800 <= ch && ch <= 0xdbff) {
             ++i;
             if (i >= iz) {
                 return false;
             }
-            lowCh = id.charCodeAt(i);
+            const lowCh = id.charCodeAt(i);
             if (!(0xdc00 <= lowCh && lowCh <= 0xdfff)) {
                 return false;
             }
@@ -151,7 +149,7 @@ function isIdentifierES6(id: string, strict: boolean): boolean {
     return isIdentifierNameES6(id) && !isReservedWordES6(id, strict);
 }
 
-var keyword = {
+export const keyword = {
     isKeywordES5: isKeywordES5,
     isKeywordES6: isKeywordES6,
     isReservedWordES5: isReservedWordES5,
@@ -162,5 +160,3 @@ var keyword = {
     isIdentifierES5: isIdentifierES5,
     isIdentifierES6: isIdentifierES6,
 };
-
-export = keyword;

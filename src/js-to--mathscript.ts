@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { generate, GenerateOptions } from './ecmascript/index';
-import { parseModule, ParseOptions, parseScript/*, Program*/, Syntax, parse, Module, Script, ParseDelegate } from './ecmascript/index';
 import {
   ArrayExpression,
   ArrowFunctionExpression,
@@ -23,7 +21,7 @@ import {
   ForOfStatement,
   ForStatement,
   FunctionDeclaration,
-  FunctionExpression,
+  FunctionExpression, generate, GenerateOptions,
   // generate,
   // GenerateOptions,
   // generateRandomId,
@@ -31,11 +29,11 @@ import {
   IfStatement,
   ImportDeclaration,
   ImportSpecifier,
-  MethodDefinition,
+  MethodDefinition, Module,
   // Module,
   NewExpression,
-  Node,
-  ObjectExpression,
+
+  ObjectExpression, parse, ParseDelegate, ParseOptions,
   // parse as esprimaParse,
   // ParseDelegate,
   // parseModule as esprimaParseModule,
@@ -43,14 +41,14 @@ import {
   // parseScript as esprimaParseScript,
   Property,
   RestElement,
-  ReturnStatement,
+  ReturnStatement, Script,
   // Script,
   SequenceExpression,
-  SpreadElement,
+  SpreadElement, StatementListItem, StaticMemberExpression,
   // StatementListItem,
   // StaticMemberExpression,
   SwitchCase,
-  SwitchStatement,
+  SwitchStatement, Syntax,
   // Syntax,
   TemplateLiteral,
   ThrowStatement,
@@ -64,8 +62,7 @@ import {
 
   WhileStatement,
   YieldExpression
-} from './ecmascript/index'//'estree';
-import { MetaData, StatementListItem, StaticMemberExpression } from './ecmascript/index';
+} from './ecmascript/index';
 
 /*
 export interface ParseDelegate {
