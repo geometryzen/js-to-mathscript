@@ -61,7 +61,7 @@ TokenName[Token.JSXIdentifier] = 'JSXIdentifier';
 TokenName[Token.JSXText] = 'JSXText';
 
 /**
- * RawToken is converted into IToken by the parser.ts convertToken() function.
+ * RawToken is converted into TokenEntry by the parser.ts convertToken() function.
  * Hence, this could be called a ParserToken.
  */
 export interface TokenEntry {

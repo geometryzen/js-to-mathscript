@@ -205,7 +205,7 @@ export class AsyncArrowFunctionExpression {
   }
 }
 
-export class AsyncFunctionDeclaration {
+export class AsyncFunctionDeclaration implements BaseNode {
   readonly type: StatementType;
   readonly id: Identifier | null;
   readonly params: FunctionParameter[];
@@ -222,6 +222,11 @@ export class AsyncFunctionDeclaration {
     this.expression = false;
     this.async = true;
   }
+  // BaseNode 
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export class AsyncFunctionExpression {
@@ -278,13 +283,17 @@ export class BlockStatement {
   }
 }
 
-export class BreakStatement {
+export class BreakStatement implements BaseNode {
   readonly type: StatementType;
   readonly label: Identifier | null;
   constructor(label: Identifier | null) {
     this.type = Syntax.BreakStatement;
     this.label = label;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export class CallExpression {
@@ -371,20 +380,28 @@ export class ConditionalExpression {
   }
 }
 
-export class ContinueStatement {
+export class ContinueStatement implements BaseNode {
   readonly type: StatementType;
   readonly label: Identifier | null;
   constructor(label: Identifier | null) {
     this.type = Syntax.ContinueStatement;
     this.label = label;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class DebuggerStatement {
+export class DebuggerStatement implements BaseNode {
   readonly type: StatementType;
   constructor() {
     this.type = Syntax.DebuggerStatement;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export class Directive {
@@ -510,7 +527,7 @@ export class ForStatement {
   }
 }
 
-export class FunctionDeclaration {
+export class FunctionDeclaration implements BaseNode {
   readonly type: StatementType;
   readonly id: Identifier | null;
   readonly params: FunctionParameter[];
@@ -527,6 +544,11 @@ export class FunctionDeclaration {
     this.expression = false;
     this.async = false;
   }
+  // BaseNode
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export class FunctionExpression implements BaseNodeWithoutComments {
@@ -981,7 +1003,7 @@ export class UpdateExpression {
   }
 }
 
-export class VariableDeclaration {
+export class VariableDeclaration implements BaseNode {
   readonly type: StatementType;
   readonly declarations: VariableDeclarator[];
   readonly kind: string;
@@ -990,6 +1012,10 @@ export class VariableDeclaration {
     this.declarations = declarations;
     this.kind = kind;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export class VariableDeclarator {

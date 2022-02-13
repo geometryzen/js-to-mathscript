@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { GenerateOptions, generate } from './ecmascript/index';
 import {
   ArrayExpression,
   ArrowFunctionExpression,
@@ -21,7 +22,7 @@ import {
   ForOfStatement,
   ForStatement,
   FunctionDeclaration,
-  FunctionExpression, generate, GenerateOptions,
+  FunctionExpression,
   // generate,
   // GenerateOptions,
   // generateRandomId,
@@ -130,6 +131,8 @@ export function jsToMathScript(code: string, transpileOptions: TranspileOptions,
   } else {
     return { code: generated.code };
   }
+  // escodegen and local implementation disagree.
+  // return { code: generated };
 }
 
 /**

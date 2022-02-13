@@ -1,6 +1,6 @@
 import { Precedence } from './Precedence';
 
-export const BinaryPrecedence = {
+export const BinaryPrecedence: { [code: string]: number } = {
     '||': Precedence.LogicalOR,
     '&&': Precedence.LogicalAND,
     '|': Precedence.BitwiseOR,
