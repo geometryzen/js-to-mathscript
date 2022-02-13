@@ -285,6 +285,10 @@ export class AsyncFunctionExpression implements BaseNode {
 export class AwaitExpression implements BaseNode {
   readonly type: StatementType;
   readonly argument: Expression;
+  /**
+   * Used by escodegen.
+   */
+  delegate?: unknown;
   constructor(argument: Expression) {
     this.type = Syntax.AwaitExpression;
     this.argument = argument;
@@ -362,6 +366,10 @@ export class CatchClause implements BaseNode {
   readonly type: StatementType;
   readonly param: BindingIdentifier | BindingPattern;
   readonly body: BlockStatement;
+  /**
+   * Used by escodegen.
+   */
+  guard?: Expression;
   constructor(param: BindingIdentifier | BindingPattern, body: BlockStatement) {
     this.type = Syntax.CatchClause;
     this.param = param;
@@ -488,6 +496,10 @@ export class Directive implements BaseNode {
   readonly type: StatementType;
   readonly expression: Expression;
   readonly directive: string;
+  /**
+   * Used by escodegen.
+   */
+  raw?: string;
   constructor(expression: Expression, directive: string) {
     this.type = Syntax.ExpressionStatement;
     this.expression = expression;
@@ -1037,6 +1049,10 @@ export class Script implements BaseNode {
   range?: [number, number];
 }
 
+export function isProgram(p: { type: StatementType }): p is Module | Script {
+  return p.type === Syntax.Program;
+}
+
 export class SequenceExpression implements BaseNode {
   readonly type: StatementType;
   readonly expressions: Expression[];
@@ -1225,6 +1241,14 @@ export class TryStatement implements BaseNode {
   readonly block: BlockStatement;
   readonly handler: CatchClause | null;
   readonly finalizer: BlockStatement | null;
+  /**
+   * Used by escodegen.
+   */
+  handlers: CatchClause[];
+  /**
+   * Used by escodegen.
+   */
+  guardedHandlers: CatchClause[];
   constructor(block: BlockStatement, handler: CatchClause | null, finalizer: BlockStatement | null) {
     this.type = Syntax.TryStatement;
     this.block = block;
@@ -1286,6 +1310,10 @@ export class VariableDeclaration implements BaseNode {
   trailingComments: Comment[];
   loc?: SourceLocation;
   range?: [number, number];
+}
+
+export function isVariableDeclaration(p: { type: StatementType }): p is VariableDeclaration {
+  return p.type === Syntax.VariableDeclaration;
 }
 
 export class VariableDeclarator implements BaseNode {

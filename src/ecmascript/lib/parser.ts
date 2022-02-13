@@ -2852,6 +2852,7 @@ export class Parser {
     this.expectKeyword('try');
 
     const block = this.parseBlock();
+    // DGH: May be multiple handlers?
     const handler = this.matchKeyword('catch') ? this.parseCatchClause() : null;
     const finalizer = this.matchKeyword('finally') ? this.parseFinallyClause() : null;
 
@@ -3264,12 +3265,12 @@ export class Parser {
   parseDirective(): Directive | ExpressionStatement {
     const token = this.lookahead;
 
-    const node = this.createMarker();
+    const marker = this.createMarker();
     const expr = this.parseExpression();
-    const directive = expr.type === Syntax.Literal ? this.getTokenRaw(token).slice(1, -1) : null;
+    const directive = isLiteral(expr) ? this.getTokenRaw(token).slice(1, -1) : null;
     this.consumeSemicolon();
 
-    return this.finalize(node, directive ? new Directive(expr, directive) : new ExpressionStatement(expr));
+    return this.finalize(marker, directive ? new Directive(expr, directive) : new ExpressionStatement(expr));
   }
 
   parseDirectivePrologues(): Statement[] {
@@ -3686,9 +3687,9 @@ export class Parser {
 
   // import <foo> ...;
   parseImportDefaultSpecifier(): ImportDefaultSpecifier {
-    const node = this.createMarker();
-    const local = this.parseIdentifierName();
-    return this.finalize(node, new ImportDefaultSpecifier(local));
+    const marker = this.createMarker();
+    const id = this.parseIdentifierName();
+    return this.finalize(marker, new ImportDefaultSpecifier(id));
   }
 
   // import <* as foo> ...;
