@@ -2,7 +2,7 @@
 import { BinaryPrecedence } from './BinaryPrecedence';
 import { isDecimalDigit, isIdentifierPart, isLineTerminator, isWhiteSpace } from './code';
 import { Comment } from './comment-handler';
-import { ArrayExpression, ArrayPattern, ArrowFunctionExpression, AssignmentExpression, AssignmentPattern, AwaitExpression, BaseNode, BinaryExpression, BindingPattern, BlockStatement, BreakStatement, CallExpression, CatchClause, ClassBody, ClassDeclaration, ClassExpression, ComputedMemberExpression, ConditionalExpression, ContinueStatement, DebuggerStatement, Directive, DoWhileStatement, EmptyStatement, ExportableDefaultDeclaration, ExportableNamedDeclaration, ExportAllDeclaration, ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier, Expression, ExpressionStatement, ForInStatement, ForOfStatement, ForStatement, FunctionDeclaration, FunctionExpression, FunctionParameter, Identifier, IfStatement, ImportDeclaration, ImportDefaultSpecifier, ImportSpecifier, isArrowFunctionExpression, isIdentifier, isLiteral, isProgram, isVariableDeclaration, LabeledStatement, Literal, MethodDefinition, Module, NewExpression, ObjectExpression, ObjectPattern, Property, ReturnStatement, Script, SequenceExpression, SpreadElement, Statement, Super, SwitchCase, SwitchStatement, TaggedTemplateExpression, TemplateElement, TemplateLiteral, ThisExpression, ThrowStatement, TryStatement, UnaryExpression, UpdateExpression, VariableDeclaration, VariableDeclarator, WhileStatement, WithStatement, YieldExpression } from './nodes';
+import { ArrayExpression, ArrayPattern, ArrowFunctionExpression, AssignmentExpression, AssignmentPattern, AwaitExpression, BaseNode, BinaryExpression, BindingPattern, BlockStatement, BreakStatement, CallExpression, CatchClause, ClassBody, ClassDeclaration, ClassExpression, ComputedMemberExpression, ConditionalExpression, ContinueStatement, DebuggerStatement, Directive, DoWhileStatement, EmptyStatement, ExportableDefaultDeclaration, ExportableNamedDeclaration, ExportAllDeclaration, ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier, Expression, ExpressionStatement, ForInStatement, ForOfStatement, ForStatement, FunctionDeclaration, FunctionExpression, FunctionParameter, Identifier, IfStatement, ImportDeclaration, ImportDefaultSpecifier, ImportNamespaceSpecifier, ImportSpecifier, isArrowFunctionExpression, isIdentifier, isLiteral, isProgram, isVariableDeclaration, LabeledStatement, Literal, MethodDefinition, Module, NewExpression, ObjectExpression, ObjectPattern, Property, ReturnStatement, Script, SequenceExpression, SpreadElement, Statement, Super, SwitchCase, SwitchStatement, TaggedTemplateExpression, TemplateElement, TemplateLiteral, ThisExpression, ThrowStatement, TryStatement, UnaryExpression, UpdateExpression, VariableDeclaration, VariableDeclarator, WhileStatement, WithStatement, YieldExpression } from './nodes';
 import { Precedence } from './Precedence';
 import { Syntax } from './syntax';
 
@@ -791,7 +791,12 @@ function generateVerbatim(expr: Expression, precedence: number) {
 
 }
 
-function generateInternal(node: Module | Script) {
+/**
+ * TODO: Since the node is always a Module or Script, te node type is always Program.
+ * @param node 
+ * @returns 
+ */
+function generateProgram(node: Module | Script) {
     // console.lg('generateInternal(node=...)');
     const codegen = new CodeGenerator();
     if (codegen.isStatement(node)) {
@@ -1217,7 +1222,7 @@ class CodeGenerator {
         // DGH. Is this a bug? Should this be local property?
         return generateIdentifier(expr.id);
     }
-    ImportNamespaceSpecifier(expr, _precedence: number, _flags: number) {
+    ImportNamespaceSpecifier(expr: ImportNamespaceSpecifier, _precedence: number, _flags: number) {
         var result = ['*'];
         if (expr.id) {
             result.push(space + 'as' + noEmptySpace() + generateIdentifier(expr.id));
@@ -1367,6 +1372,7 @@ class CodeGenerator {
         return this.Literal(expr, precedence, flags);
     }
     //==============================================
+    // BEGIN OF STATEMENTS
     isStatement(node: ExportableNamedDeclaration | ExportableDefaultDeclaration): boolean {
         switch (node.type) {
             case 'Program': {
@@ -2048,6 +2054,7 @@ class CodeGenerator {
         result.push(this.maybeBlock(stmt.body, flags & F_SEMICOLON_OPT ? S_TFFT : S_TFFF));
         return result;
     }
+    // END OF STATEMENTS
     //==============================================
 
     generateFunctionParams(node: FunctionDeclaration | FunctionExpression | ArrowFunctionExpression) {
@@ -2328,11 +2335,11 @@ export interface GenerateOptions {
 /**
  * Generates the code corresponding to the tree.
  * The return format depends upon whether the sourceMapWithCode option is defined.
- * @param node 
+ * @param program 
  * @param options 
  * @returns 
  */
-export function generate(node: Module | Script, options?: GenerateOptions) {
+export function generate(program: Module | Script, options?: GenerateOptions) {
     // console.lg(`generate(node..., options=${JSON.stringify(options)})`);
     const defaultOptions = getDefaultOptions();
 
@@ -2365,7 +2372,7 @@ export function generate(node: Module | Script, options?: GenerateOptions) {
     preserveBlankLines = options.format.preserveBlankLines && sourceCode !== null;
     extra = options;
 
-    const result = generateInternal(node);
+    const result = generateProgram(program);
 
     let pair: { code: string; map: { setSourceContent: (sourceMap, sourceContent) => void } };
     if (!sourceMap) {

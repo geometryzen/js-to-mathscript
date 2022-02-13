@@ -3694,7 +3694,7 @@ export class Parser {
 
   // import <* as foo> ...;
   parseImportNamespaceSpecifier(): ImportNamespaceSpecifier {
-    const node = this.createMarker();
+    const marker = this.createMarker();
 
     this.expect('*');
     if (!this.matchContextualKeyword('as')) {
@@ -3703,7 +3703,7 @@ export class Parser {
     this.nextToken();
     const local = this.parseIdentifierName();
 
-    return this.finalize(node, new ImportNamespaceSpecifier(local));
+    return this.finalize(marker, new ImportNamespaceSpecifier(local));
   }
 
   parseImportDeclaration(): ImportDeclaration {
