@@ -1,9 +1,10 @@
 import { FunctionDeclaration } from 'estree';
 import { BinaryPrecedence } from './BinaryPrecedence';
 import { isDecimalDigit, isIdentifierPart, isLineTerminator, isWhiteSpace } from './code';
-import { ArrayPattern, AssignmentPattern, AwaitExpression, BinaryExpression, BindingPattern, BlockStatement, BreakStatement, CallExpression, CatchClause, ClassBody, ClassDeclaration, ClassExpression, ContinueStatement, DebuggerStatement, Directive, DoWhileStatement, EmptyStatement, ExportableDefaultDeclaration, ExportableNamedDeclaration, ExportAllDeclaration, ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier, Expression, ExpressionStatement, ForInStatement, ForOfStatement, ForStatement, FunctionExpression, FunctionParameter, Identifier, IfStatement, ImportSpecifier, isIdentifier, LabeledStatement, MethodDefinition, Module, NewExpression, ObjectExpression, ObjectPattern, ReturnStatement, Script, SequenceExpression, SpreadElement, Statement, SwitchCase, SwitchStatement, TemplateLiteral, ThrowStatement, TryStatement, UnaryExpression, UpdateExpression, WhileStatement, WithStatement, YieldExpression } from './nodes';
+import { ArrayPattern, ArrowFunctionExpression, AssignmentPattern, AwaitExpression, BaseNode, BinaryExpression, BindingPattern, BlockStatement, BreakStatement, CallExpression, CatchClause, ClassBody, ClassDeclaration, ClassExpression, ComputedMemberExpression, ContinueStatement, DebuggerStatement, Directive, DoWhileStatement, EmptyStatement, ExportableDefaultDeclaration, ExportableNamedDeclaration, ExportAllDeclaration, ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier, Expression, ExpressionStatement, ForInStatement, ForOfStatement, ForStatement, FunctionExpression, FunctionParameter, Identifier, IfStatement, ImportDeclaration, ImportSpecifier, isIdentifier, isLiteral, LabeledStatement, Literal, MethodDefinition, Module, NewExpression, ObjectExpression, ObjectPattern, ReturnStatement, Script, SequenceExpression, SpreadElement, Statement, SwitchCase, SwitchStatement, TemplateLiteral, ThrowStatement, TryStatement, UnaryExpression, UpdateExpression, VariableDeclaration, VariableDeclarator, WhileStatement, WithStatement, YieldExpression } from './nodes';
 import { Precedence } from './Precedence';
 import { Syntax } from './syntax';
+import { Comment } from './comment-handler';
 
 /*
   Copyright (C) 2015-2020 David Holmes <david.geo.holmes@gmail.com>
@@ -41,31 +42,36 @@ import { Syntax } from './syntax';
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-type CODEOUT = (string | string[])[];
+class SourceNode {
+    constructor(
+        public readonly line: number | null,
+        public readonly column: number | null,
+        public readonly sourceMap: unknown
+    ) {
+        // Nothing to see here.
+    }
+}
+
+type CODEOUT = (string | SourceNode | CODEOUT[])[];
 
 let preserveBlankLines: boolean;
-let base: number;
-let isArray: () => boolean
-let extra: { verbatim: PropertyKey, comment: unknown, moz: {} };
+let base: string;
+let extra: { verbatim: PropertyKey, comment: unknown, moz: {}, format?: string };
 let newline: string;
 let directive: unknown;
 let semicolons: boolean;
 let safeConcatenation: unknown;
 let indent: number;
-
-var SourceNode,
-    json,
-    renumber,
-    hexadecimal,
-    quotes,
-    escapeless,
-    space: string,
-    parentheses,
-    parse,
-    sourceMap,
-    sourceCode,
-    FORMAT_MINIFY,
-    FORMAT_DEFAULTS;
+let renumber: boolean;
+let sourceMap: unknown;
+let sourceCode: string;
+let quotes: 'double';
+let parentheses: unknown;
+let escapeless: boolean;
+let hexadecimal: boolean;
+let json: unknown;
+let space: string;
+let parse: (arg: unknown) => Module | Script;
 
 // Generation is done by generateExpression.
 function isExpression(node: Module | Script): boolean {
@@ -159,13 +165,6 @@ function stringRepeat(str: string, num: number): string {
     return result;
 }
 
-isArray = Array.isArray;
-if (!isArray) {
-    isArray = function isArray(array) {
-        return Object.prototype.toString.call(array) === '[object Array]';
-    };
-}
-
 function hasLineTerminator(str: string): boolean {
     return /[\r\n]/g.test(str);
 }
@@ -175,9 +174,8 @@ function endsWithLineTerminator(str: string): boolean {
     return len > 0 && isLineTerminator(str.charCodeAt(len - 1));
 }
 
-function merge(target, override) {
-    var key;
-    for (key in override) {
+function merge(target: { [key: string]: unknown }, override: any) {
+    for (const key in override) {
         if (override.hasOwnProperty(key)) {
             target[key] = override[key];
         }
@@ -185,10 +183,10 @@ function merge(target, override) {
     return target;
 }
 
-function updateDeeply(target, override): GenerateOptions {
+function updateDeeply(target: { [key: string]: unknown }, override: any): GenerateOptions {
     var key, val;
 
-    function isHashObject(target) {
+    function isHashObject(target: unknown): boolean {
         return typeof target === 'object' && target instanceof Object && !(target instanceof RegExp);
     }
 
@@ -280,25 +278,24 @@ function escapeRegExpCharacter(ch: number, previousIsBackslash: boolean) {
     return String.fromCharCode(ch);
 }
 
-function generateRegExp(reg) {
-    var match, result, flags, i, iz, ch, characterInBrack, previousIsBackslash;
+function generateRegExp(reg: RegExp): string {
 
-    result = reg.toString();
+    let result = reg.toString();
 
     if (reg.source) {
         // extract flag from toString result
-        match = result.match(/\/([^/]*)$/);
+        const match = result.match(/\/([^/]*)$/);
         if (!match) {
             return result;
         }
 
-        flags = match[1];
+        const flags = match[1];
         result = '';
 
-        characterInBrack = false;
-        previousIsBackslash = false;
-        for (i = 0, iz = reg.source.length; i < iz; ++i) {
-            ch = reg.source.charCodeAt(i);
+        let characterInBrack = false;
+        let previousIsBackslash = false;
+        for (let i = 0, iz = reg.source.length; i < iz; ++i) {
+            const ch = reg.source.charCodeAt(i);
 
             if (!previousIsBackslash) {
                 if (characterInBrack) {
@@ -359,7 +356,7 @@ function escapeAllowedCharacter(code: number, next: number) {
     }
 }
 
-function escapeDisallowedCharacter(code) {
+function escapeDisallowedCharacter(code: number) {
     if (code === 0x5c /* \ */) {
         return '\\\\';
     }
@@ -383,12 +380,11 @@ function escapeDisallowedCharacter(code) {
     throw new Error('Incorrectly classified character');
 }
 
-function escapeDirective(str) {
-    var i, iz, code, quote;
+function escapeDirective(str: string) {
 
-    quote = quotes === 'double' ? '"' : "'";
-    for (i = 0, iz = str.length; i < iz; ++i) {
-        code = str.charCodeAt(i);
+    let quote = quotes === 'double' ? '"' : "'";
+    for (let i = 0, iz = str.length; i < iz; ++i) {
+        const code = str.charCodeAt(i);
         if (code === 0x27 /* ' */) {
             quote = '"';
             break;
@@ -456,14 +452,14 @@ function escapeString(str: string) {
  * flatten an array to a string, where the array can contain
  * either strings or nested arrays
  */
-function flattenToString(arr) {
+function flattenToString(arr: unknown[]) {
     var i,
         iz,
         elem,
         result = '';
     for (i = 0, iz = arr.length; i < iz; ++i) {
         elem = arr[i];
-        result += isArray(elem) ? flattenToString(elem) : elem;
+        result += Array.isArray(elem) ? flattenToString(elem) : elem;
     }
     return result;
 }
@@ -471,12 +467,12 @@ function flattenToString(arr) {
 /**
  * convert generated to a SourceNode when source maps are enabled.
  */
-function toSourceNodeWhenNeeded(generated, node?): SourceNode {
+function toSourceNodeWhenNeeded(generated: SourceNode | string | string[], node?: BaseNode): SourceNode | string {
     if (!sourceMap) {
         // with no source maps, generated is either an
         // array or a string.  if an array, flatten it.
         // if a string, just return it
-        if (isArray(generated)) {
+        if (Array.isArray(generated)) {
             return flattenToString(generated);
         } else {
             return generated;
@@ -499,21 +495,20 @@ function noEmptySpace() {
     return space ? space : ' ';
 }
 
-function join(left, right) {
-    var leftSource, rightSource, leftCharCode, rightCharCode;
+function join(left: string | (string | SourceNode)[] | (string[])[], right: string | string[] | SourceNode) {
 
-    leftSource = toSourceNodeWhenNeeded(left).toString();
+    const leftSource = toSourceNodeWhenNeeded(left).toString();
     if (leftSource.length === 0) {
         return [right];
     }
 
-    rightSource = toSourceNodeWhenNeeded(right).toString();
+    const rightSource = toSourceNodeWhenNeeded(right).toString();
     if (rightSource.length === 0) {
         return [left];
     }
 
-    leftCharCode = leftSource.charCodeAt(leftSource.length - 1);
-    rightCharCode = rightSource.charCodeAt(0);
+    const leftCharCode = leftSource.charCodeAt(leftSource.length - 1);
+    const rightCharCode = rightSource.charCodeAt(0);
 
     if (
         ((leftCharCode === 0x2b /* + */ || leftCharCode === 0x2d) /* - */ && leftCharCode === rightCharCode) ||
@@ -528,11 +523,11 @@ function join(left, right) {
     return [left, space, right];
 }
 
-function addIndent(stmt: string): [number, string] {
+function addIndent(stmt: string | SourceNode): [string, string | SourceNode] {
     return [base, stmt];
 }
 
-function withIndent(fn: (base) => unknown) {
+function withIndent(fn: (base: string) => unknown) {
     var previousBase;
     previousBase = base;
     base += indent;
@@ -602,7 +597,7 @@ function adjustMultilineComment(value, specialBase) {
     return array.join('\n');
 }
 
-function generateComment(comment, specialBase?) {
+function generateComment(comment: Comment, specialBase?) {
     if (comment.type === 'Line') {
         if (endsWithLineTerminator(comment.value)) {
             return '//' + comment.value;
@@ -621,7 +616,7 @@ function generateComment(comment, specialBase?) {
     return '/*' + comment.value + '*/';
 }
 
-function addComments(stmt, result) {
+function addComments(stmt: Statement | BlockStatement | Expression, result) {
     var i, len, comment, save, tailingToStatement, specialBase, fragment, extRange, range, prevRange, prefix, infix, suffix, count;
 
     if (stmt.leadingComments && stmt.leadingComments.length > 0) {
@@ -672,9 +667,9 @@ function addComments(stmt, result) {
                 result.push('\n');
             }
 
-            for (i = 1, len = stmt.leadingComments.length; i < len; ++i) {
-                comment = stmt.leadingComments[i];
-                fragment = [generateComment(comment)];
+            for (let i = 1, len = stmt.leadingComments.length; i < len; ++i) {
+                const comment = stmt.leadingComments[i];
+                const fragment = [generateComment(comment)];
                 if (!endsWithLineTerminator(toSourceNodeWhenNeeded(fragment).toString())) {
                     fragment.push('\n');
                 }
@@ -733,50 +728,47 @@ function addComments(stmt, result) {
 }
 
 function generateBlankLines(start: number, end: number, result: string[]): void {
-    var j,
-        newlineCount = 0;
-
-    for (j = start; j < end; j++) {
+    let newlineCount = 0;
+    for (let j = start; j < end; j++) {
         if (sourceCode[j] === '\n') {
             newlineCount++;
         }
     }
-
-    for (j = 1; j < newlineCount; j++) {
+    for (let j = 1; j < newlineCount; j++) {
         result.push(newline);
     }
 }
 
-function parenthesize(text, current, should) {
+function parenthesize(text: string[], current: number, should: number) {
     if (current < should) {
         return ['(', text, ')'];
     }
     return text;
 }
 
-function generateVerbatimString(string) {
-    var i, iz, result;
-    result = string.split(/\r\n|\n/);
-    for (i = 1, iz = result.length; i < iz; i++) {
+function generateVerbatimString(str: string): string[] {
+    const result = str.split(/\r\n|\n/);
+    for (let i = 1, iz = result.length; i < iz; i++) {
         result[i] = newline + base + result[i];
     }
     return result;
 }
 
-function generateVerbatim(expr, precedence) {
-    var verbatim, result, prec;
-    verbatim = expr[extra.verbatim];
+function generateVerbatim(expr: Expression, precedence: number) {
+    let verbatim = expr[extra.verbatim];
 
     if (typeof verbatim === 'string') {
-        result = parenthesize(generateVerbatimString(verbatim), Precedence.Sequence, precedence);
-    } else {
+        const result = parenthesize(generateVerbatimString(verbatim), Precedence.Sequence, precedence);
+        return toSourceNodeWhenNeeded(result, expr);
+    }
+    else {
         // verbatim is object
-        result = generateVerbatimString(verbatim.content);
-        prec = verbatim.precedence != null ? verbatim.precedence : Precedence.Sequence;
-        result = parenthesize(result, prec, precedence);
+        const resultOne = generateVerbatimString(verbatim.content);
+        const prec = verbatim.precedence != null ? verbatim.precedence : Precedence.Sequence;
+        const resultTwo = parenthesize(resultOne, prec, precedence);
+        return toSourceNodeWhenNeeded(resultTwo, expr);
     }
 
-    return toSourceNodeWhenNeeded(result, expr);
 }
 
 interface CodeGenExpression {
@@ -786,9 +778,9 @@ class CodeGenerator {
     static Expression: CodeGenExpression;
     static Statement: {};
 
-    generateFunctionParams(node: FunctionDeclaration | FunctionExpression) {
+    generateFunctionParams(node: FunctionDeclaration | FunctionExpression | ArrowFunctionExpression) {
         var i, iz, hasDefault;
-        let result: CODEOUT;
+        let result: (string | SourceNode)[];
 
         hasDefault = false;
 
@@ -832,16 +824,16 @@ class CodeGenerator {
         return result;
     }
 
-    generatePattern(node: Expression, precedence: number, flags: number): CODEOUT | string {
+    generatePattern(node: Expression, precedence: number, flags: number) {
         if (isIdentifier(node)) {
             return generateIdentifier(node);
         }
         return this.generateExpression(node, precedence, flags);
     }
 
-    generateStatement(stmt, flags): string {
+    generateStatement(stmt: Statement | BlockStatement, flags: number) {
         // console.lg('CodeGenerator.generateStatement(stmt=..., flags=...)');
-        var result, fragment;
+        var result;
 
         result = this[stmt.type](stmt, flags);
 
@@ -851,7 +843,7 @@ class CodeGenerator {
             result = addComments(stmt, result);
         }
 
-        fragment = toSourceNodeWhenNeeded(result).toString();
+        const fragment = toSourceNodeWhenNeeded(result).toString();
         if (stmt.type === Syntax.Program && !safeConcatenation && newline === '' && fragment.charAt(fragment.length - 1) === '\n') {
             result = sourceMap ? toSourceNodeWhenNeeded(result).replaceRight(/\s+$/, '') : fragment.replace(/\s+$/, '');
         }
@@ -859,7 +851,7 @@ class CodeGenerator {
         return toSourceNodeWhenNeeded(result, stmt);
     }
 
-    generateExpression(expr: Expression, precedence: number, flags: number): string {
+    generateExpression(expr: Expression, precedence: number, flags: number) {
         // console.lg(`CodeGenerator.generateExpression(expr=${JSON.stringify(expr)}, precedence=${precedence}, flags=${JSON.stringify(flags)})`);
         var result, type;
 
@@ -884,8 +876,8 @@ class CodeGenerator {
         return toSourceNodeWhenNeeded(result, expr);
     }
 
-    maybeBlock(stmt: Expression | BlockStatement, flags: number): string | string[] {
-        let result: string[];
+    maybeBlock(stmt: Expression | BlockStatement, flags: number) {
+        let result: (string | string[])[];
 
         const noLeadingComment = !extra.comment || !stmt.leadingComments;
 
@@ -905,7 +897,7 @@ class CodeGenerator {
         return result;
     }
 
-    maybeBlockSuffix(stmt: Statement, result: CODEOUT): CODEOUT {
+    maybeBlockSuffix(stmt: Statement, result: string[]) {
         const ends = endsWithLineTerminator(toSourceNodeWhenNeeded(result).toString());
         if (stmt.type === Syntax.BlockStatement && (!extra.comment || !stmt.leadingComments) && !ends) {
             return [result, space];
@@ -916,7 +908,7 @@ class CodeGenerator {
         return [result, newline, base];
     }
 
-    generateFunctionBody(node: FunctionDeclaration | FunctionExpression): CODEOUT {
+    generateFunctionBody(node: FunctionDeclaration | FunctionExpression | ArrowFunctionExpression) {
 
 
         const result: CODEOUT = this.generateFunctionParams(node);
@@ -940,7 +932,7 @@ class CodeGenerator {
         return result;
     }
 
-    generateIterationForStatement(operator, stmt, flags: number): CODEOUT {
+    generateIterationForStatement(operator: 'in' | 'of', stmt: ForInStatement | ForOfStatement, flags: number) {
         let result: any = ['for' + space + '('];
         // const that = this;
         withIndent(() => {
@@ -975,7 +967,7 @@ class CodeGenerator {
         return result;
     }
 
-    generateAssignment(left: Identifier | BindingPattern | Pattern | FunctionParameter, right, operator, precedence: number, flags: number): CODEOUT {
+    generateAssignment(left: Identifier | BindingPattern | Pattern | FunctionParameter, right, operator, precedence: number, flags: number) {
         if (Precedence.Assignment < precedence) {
             flags |= F_ALLOW_IN;
         }
@@ -997,7 +989,7 @@ class CodeGenerator {
 
 // Helpers.
 
-function generateIdentifier(node) {
+function generateIdentifier(node: Identifier) {
     return toSourceNodeWhenNeeded(node.name, node);
 }
 
@@ -1023,13 +1015,13 @@ function generateMethodPrefix(prop) {
 // Statements.
 
 CodeGenerator.Statement = {
-    BlockStatement: function (stmt: BlockStatement, flags: number): CODEOUT {
+    BlockStatement: function (this: CodeGenerator, stmt: BlockStatement, flags: number) {
         var range,
-            content,
-            result = ['{', newline],
-            that = this;
+            content;
 
-        withIndent(function () {
+        let result: (string | string[])[] = ['{', newline];
+
+        withIndent(() => {
             // handle functions without any code
             if (stmt.body.length === 0 && preserveBlankLines) {
                 range = stmt.range;
@@ -1042,13 +1034,12 @@ CodeGenerator.Statement = {
                 }
             }
 
-            var i, iz, fragment, bodyFlags;
-            bodyFlags = S_TFFF;
+            let bodyFlags = S_TFFF;
             if (flags & F_FUNC_BODY) {
                 bodyFlags |= F_DIRECTIVE_CTX;
             }
 
-            for (i = 0, iz = stmt.body.length; i < iz; ++i) {
+            for (let i = 0, iz = stmt.body.length; i < iz; ++i) {
                 if (preserveBlankLines) {
                     // handle spaces before the first line
                     if (i === 0) {
@@ -1076,10 +1067,11 @@ CodeGenerator.Statement = {
                     bodyFlags |= F_SEMICOLON_OPT;
                 }
 
+                let fragment: string | SourceNode | [string, string | SourceNode];
                 if (stmt.body[i].leadingComments && preserveBlankLines) {
-                    fragment = that.generateStatement(stmt.body[i], bodyFlags);
+                    fragment = this.generateStatement(stmt.body[i], bodyFlags);
                 } else {
-                    fragment = addIndent(that.generateStatement(stmt.body[i], bodyFlags));
+                    fragment = addIndent(this.generateStatement(stmt.body[i], bodyFlags));
                 }
 
                 result.push(fragment);
@@ -1145,11 +1137,10 @@ CodeGenerator.Statement = {
         return result;
     },
 
-    ClassDeclaration: function (stmt: ClassDeclaration, _flags: number): CODEOUT {
-        var result, fragment;
-        result = ['class ' + stmt.id.name];
+    ClassDeclaration: function (this: CodeGenerator, stmt: ClassDeclaration, _flags: number) {
+        let result: (string | SourceNode)[] = ['class ' + stmt.id.name];
         if (stmt.superClass) {
-            fragment = join('extends', this.generateExpression(stmt.superClass, Precedence.Assignment, E_TTT));
+            const fragment = join('extends', this.generateExpression(stmt.superClass, Precedence.Assignment, E_TTT));
             result = join(result, fragment);
         }
         result.push(space);
@@ -1164,14 +1155,14 @@ CodeGenerator.Statement = {
         return escapeDirective(stmt.directive) + this.semicolon(flags);
     },
 
-    DoWhileStatement: function (this: CodeGenerator, stmt: DoWhileStatement, flags: number): CODEOUT {
+    DoWhileStatement: function (this: CodeGenerator, stmt: DoWhileStatement, flags: number) {
         // Because `do 42 while (cond)` is Syntax Error. We need semicolon.
-        var result = join('do', this.maybeBlock(stmt.body, S_TFFF));
-        result = this.maybeBlockSuffix(stmt.body, result);
+        const doPart = join('do', this.maybeBlock(stmt.body, S_TFFF));
+        const result = this.maybeBlockSuffix(stmt.body, doPart);
         return join(result, ['while' + space + '(', this.generateExpression(stmt.test, Precedence.Sequence, E_TTT), ')' + this.semicolon(flags)]);
     },
 
-    CatchClause: function (stmt: CatchClause, _flags: number): CODEOUT {
+    CatchClause: function (stmt: CatchClause, _flags: number) {
         var result,
             that = this;
         withIndent(function () {
@@ -1196,7 +1187,7 @@ CodeGenerator.Statement = {
         return ';';
     },
 
-    ExportDefaultDeclaration: function (this: CodeGenerator, stmt: ExportDefaultDeclaration, flags: number): CODEOUT {
+    ExportDefaultDeclaration: function (this: CodeGenerator, stmt: ExportDefaultDeclaration, flags: number) {
         var result = ['export'],
             bodyFlags;
 
@@ -1213,8 +1204,8 @@ CodeGenerator.Statement = {
         return result;
     },
 
-    ExportNamedDeclaration: function (this: CodeGenerator, stmt: ExportNamedDeclaration, flags: number): CODEOUT {
-        let result = ['export']
+    ExportNamedDeclaration: function (this: CodeGenerator, stmt: ExportNamedDeclaration, flags: number) {
+        let result: (string | SourceNode)[] = ['export']
 
         let bodyFlags = flags & F_SEMICOLON_OPT ? S_TFFT : S_TFFF;
 
@@ -1263,7 +1254,7 @@ CodeGenerator.Statement = {
         return result;
     },
 
-    ExportAllDeclaration: function (this: CodeGenerator, stmt: ExportAllDeclaration, flags: number): CODEOUT {
+    ExportAllDeclaration: function (this: CodeGenerator, stmt: ExportAllDeclaration, flags: number): string[] {
         // export * FromClause ;
         return [
             'export' + space,
@@ -1275,10 +1266,10 @@ CodeGenerator.Statement = {
         ];
     },
 
-    ExpressionStatement: function (this: CodeGenerator, stmt: ExpressionStatement, flags: number): CODEOUT {
-        var result, fragment;
+    ExpressionStatement: function (this: CodeGenerator, stmt: ExpressionStatement, flags: number) {
+        var result;
 
-        function isClassPrefixed(fragment) {
+        function isClassPrefixed(fragment: string) {
             var code;
             if (fragment.slice(0, 5) !== 'class') {
                 return false;
@@ -1287,7 +1278,7 @@ CodeGenerator.Statement = {
             return code === 0x7b /* '{' */ || isWhiteSpace(code) || isLineTerminator(code);
         }
 
-        function isFunctionPrefixed(fragment) {
+        function isFunctionPrefixed(fragment: string) {
             var code;
             if (fragment.slice(0, 8) !== 'function') {
                 return false;
@@ -1296,7 +1287,7 @@ CodeGenerator.Statement = {
             return code === 0x28 /* '(' */ || isWhiteSpace(code) || code === 0x2a /* '*' */ || isLineTerminator(code);
         }
 
-        function isAsyncPrefixed(fragment) {
+        function isAsyncPrefixed(fragment: string) {
             var code, i, iz;
             if (fragment.slice(0, 5) !== 'async') {
                 return false;
@@ -1322,13 +1313,13 @@ CodeGenerator.Statement = {
         result = [this.generateExpression(stmt.expression, Precedence.Sequence, E_TTT)];
         // 12.4 '{', 'function', 'class' is not allowed in this position.
         // wrap expression with parentheses
-        fragment = toSourceNodeWhenNeeded(result).toString();
+        const fragment = toSourceNodeWhenNeeded(result).toString();
         if (
             fragment.charCodeAt(0) === 0x7b /* '{' */ || // ObjectExpression
             isClassPrefixed(fragment) ||
             isFunctionPrefixed(fragment) ||
             isAsyncPrefixed(fragment) ||
-            (directive && flags & F_DIRECTIVE_CTX && stmt.expression.type === Syntax.Literal && typeof stmt.expression.value === 'string')
+            (directive && flags & F_DIRECTIVE_CTX && isLiteral(stmt.expression) && typeof stmt.expression.value === 'string')
         ) {
             result = ['(', result, ')' + this.semicolon(flags)];
         } else {
@@ -1337,13 +1328,10 @@ CodeGenerator.Statement = {
         return result;
     },
 
-    ImportDeclaration: function (stmt, flags: number): CODEOUT {
+    ImportDeclaration: function (this: CodeGenerator, stmt: ImportDeclaration, flags: number) {
         // ES6: 15.2.1 valid import declarations:
         //     - import ImportClause FromClause ;
         //     - import ModuleSpecifier ;
-        var result,
-            cursor,
-            that = this;
 
         // If no ImportClause is present,
         // this should be `import ModuleSpecifier` so skip `from`
@@ -1360,8 +1348,8 @@ CodeGenerator.Statement = {
         }
 
         // import ImportClause FromClause ;
-        result = ['import'];
-        cursor = 0;
+        let result = ['import'];
+        let cursor = 0;
 
         // ImportedBinding
         if (stmt.specifiers[cursor].type === Syntax.ImportDefaultSpecifier) {
@@ -1391,12 +1379,12 @@ CodeGenerator.Statement = {
                     //    ...,
                     //    ...,
                     // } from "...";
-                    withIndent(function (indent) {
+                    withIndent((indent) => {
                         var i, iz;
                         result.push(newline);
                         for (i = cursor, iz = stmt.specifiers.length; i < iz; ++i) {
                             result.push(indent);
-                            result.push(that.generateExpression(stmt.specifiers[i], Precedence.Sequence, E_TTT));
+                            result.push(this.generateExpression(stmt.specifiers[i], Precedence.Sequence, E_TTT));
                             if (i + 1 < iz) {
                                 result.push(',' + newline);
                             }
@@ -1419,7 +1407,7 @@ CodeGenerator.Statement = {
         return result;
     },
 
-    VariableDeclarator: function (stmt, flags: number): CODEOUT {
+    VariableDeclarator: function (this: CodeGenerator, stmt: VariableDeclarator, flags: number) {
         var itemFlags = flags & F_ALLOW_IN ? E_TTT : E_FTT;
         if (stmt.init) {
             return [
@@ -1433,39 +1421,34 @@ CodeGenerator.Statement = {
         return this.generatePattern(stmt.id, Precedence.Assignment, itemFlags);
     },
 
-    VariableDeclaration: function (stmt, flags: number): CODEOUT {
+    VariableDeclaration: function (this: CodeGenerator, stmt: VariableDeclaration, flags: number) {
         // VariableDeclarator is typed as Statement,
         // but joined with comma (not LineTerminator).
         // So if comment is attached to target node, we should specialize.
-        var result,
-            i,
-            iz,
-            node,
-            bodyFlags,
-            that = this;
+        let result: (string | SourceNode)[];
 
         result = [stmt.kind];
 
-        bodyFlags = flags & F_ALLOW_IN ? S_TFFF : S_FFFF;
+        const bodyFlags = flags & F_ALLOW_IN ? S_TFFF : S_FFFF;
 
-        function block() {
-            node = stmt.declarations[0];
+        const block = () => {
+            let node = stmt.declarations[0];
             if (extra.comment && node.leadingComments) {
                 result.push('\n');
-                result.push(addIndent(that.generateStatement(node, bodyFlags)));
+                result.push(addIndent(this.generateStatement(node, bodyFlags)));
             } else {
                 result.push(noEmptySpace());
-                result.push(that.generateStatement(node, bodyFlags));
+                result.push(this.generateStatement(node, bodyFlags));
             }
 
-            for (i = 1, iz = stmt.declarations.length; i < iz; ++i) {
+            for (let i = 1, iz = stmt.declarations.length; i < iz; ++i) {
                 node = stmt.declarations[i];
                 if (extra.comment && node.leadingComments) {
                     result.push(',' + newline);
-                    result.push(addIndent(that.generateStatement(node, bodyFlags)));
+                    result.push(addIndent(this.generateStatement(node, bodyFlags)));
                 } else {
                     result.push(',' + space);
-                    result.push(that.generateStatement(node, bodyFlags));
+                    result.push(this.generateStatement(node, bodyFlags));
                 }
             }
         }
@@ -1481,19 +1464,19 @@ CodeGenerator.Statement = {
         return result;
     },
 
-    ThrowStatement: function (stmt: ThrowStatement, flags: number): CODEOUT {
+    ThrowStatement: function (this: CodeGenerator, stmt: ThrowStatement, flags: number) {
         return [join('throw', this.generateExpression(stmt.argument, Precedence.Sequence, E_TTT)), this.semicolon(flags)];
     },
 
-    TryStatement: function (stmt: TryStatement, _flags: number): CODEOUT {
-        var result, i, iz, guardedHandlers;
+    TryStatement: function (this: CodeGenerator, stmt: TryStatement, _flags: number) {
+        var result, guardedHandlers;
 
         result = ['try', this.maybeBlock(stmt.block, S_TFFF)];
         result = this.maybeBlockSuffix(stmt.block, result);
 
         if (stmt.handlers) {
             // old interface
-            for (i = 0, iz = stmt.handlers.length; i < iz; ++i) {
+            for (let i = 0, iz = stmt.handlers.length; i < iz; ++i) {
                 result = join(result, this.generateStatement(stmt.handlers[i], S_TFFF));
                 if (stmt.finalizer || i + 1 !== iz) {
                     result = this.maybeBlockSuffix(stmt.handlers[i].body, result);
@@ -1502,7 +1485,7 @@ CodeGenerator.Statement = {
         } else {
             guardedHandlers = stmt.guardedHandlers || [];
 
-            for (i = 0, iz = guardedHandlers.length; i < iz; ++i) {
+            for (let i = 0, iz = guardedHandlers.length; i < iz; ++i) {
                 result = join(result, this.generateStatement(guardedHandlers[i], S_TFFF));
                 if (stmt.finalizer || i + 1 !== iz) {
                     result = this.maybeBlockSuffix(guardedHandlers[i].body, result);
@@ -1511,8 +1494,8 @@ CodeGenerator.Statement = {
 
             // new interface
             if (stmt.handler) {
-                if (isArray(stmt.handler)) {
-                    for (i = 0, iz = stmt.handler.length; i < iz; ++i) {
+                if (Array.isArray(stmt.handler)) {
+                    for (let i = 0, iz = stmt.handler.length; i < iz; ++i) {
                         result = join(result, this.generateStatement(stmt.handler[i], S_TFFF));
                         if (stmt.finalizer || i + 1 !== iz) {
                             result = this.maybeBlockSuffix(stmt.handler[i].body, result);
@@ -1532,23 +1515,18 @@ CodeGenerator.Statement = {
         return result;
     },
 
-    SwitchStatement: function (stmt: SwitchStatement, _flags: number): CODEOUT {
-        var result,
-            fragment,
-            i,
-            iz,
-            bodyFlags,
-            that = this;
-        withIndent(function () {
-            result = ['switch' + space + '(', that.generateExpression(stmt.discriminant, Precedence.Sequence, E_TTT), ')' + space + '{' + newline];
+    SwitchStatement: function (this: CodeGenerator, stmt: SwitchStatement, _flags: number) {
+        var result: (string | SourceNode | (string | SourceNode)[])[];
+        withIndent(() => {
+            result = ['switch' + space + '(', this.generateExpression(stmt.discriminant, Precedence.Sequence, E_TTT), ')' + space + '{' + newline];
         });
         if (stmt.cases) {
-            bodyFlags = S_TFFF;
-            for (i = 0, iz = stmt.cases.length; i < iz; ++i) {
+            let bodyFlags = S_TFFF;
+            for (let i = 0, iz = stmt.cases.length; i < iz; ++i) {
                 if (i === iz - 1) {
                     bodyFlags |= F_SEMICOLON_OPT;
                 }
-                fragment = addIndent(this.generateStatement(stmt.cases[i], bodyFlags));
+                const fragment = addIndent(this.generateStatement(stmt.cases[i], bodyFlags));
                 result.push(fragment);
                 if (!endsWithLineTerminator(toSourceNodeWhenNeeded(fragment).toString())) {
                     result.push(newline);
@@ -1559,7 +1537,7 @@ CodeGenerator.Statement = {
         return result;
     },
 
-    SwitchCase: function (stmt: SwitchCase, flags: number): CODEOUT {
+    SwitchCase: function (stmt: SwitchCase, flags: number) {
         var result,
             fragment,
             i,
@@ -1600,8 +1578,8 @@ CodeGenerator.Statement = {
         return result;
     },
 
-    IfStatement: function (this: CodeGenerator, stmt: IfStatement, flags: number): CODEOUT {
-        let result: CODEOUT
+    IfStatement: function (this: CodeGenerator, stmt: IfStatement, flags: number) {
+        let result: (string | string[] | SourceNode)[]
         withIndent(() => {
             result = ['if' + space + '(', this.generateExpression(stmt.test, Precedence.Sequence, E_TTT), ')'];
         });
@@ -1624,7 +1602,7 @@ CodeGenerator.Statement = {
         return result;
     },
 
-    ForStatement: function (this: CodeGenerator, stmt: ForStatement, flags: number): CODEOUT {
+    ForStatement: function (this: CodeGenerator, stmt: ForStatement, flags: number) {
         let result: CODEOUT;
         //var result,
         //    that = this;
@@ -1663,24 +1641,23 @@ CodeGenerator.Statement = {
         return result;
     },
 
-    ForInStatement: function (this: CodeGenerator, stmt: ForInStatement, flags: number): CODEOUT {
+    ForInStatement: function (this: CodeGenerator, stmt: ForInStatement, flags: number) {
         return this.generateIterationForStatement('in', stmt, flags & F_SEMICOLON_OPT ? S_TFFT : S_TFFF);
     },
 
-    ForOfStatement: function (this: CodeGenerator, stmt: ForOfStatement, flags: number): CODEOUT {
+    ForOfStatement: function (this: CodeGenerator, stmt: ForOfStatement, flags: number) {
         return this.generateIterationForStatement('of', stmt, flags & F_SEMICOLON_OPT ? S_TFFT : S_TFFF);
     },
 
-    LabeledStatement: function (this: CodeGenerator, stmt: LabeledStatement, flags: number): CODEOUT {
+    LabeledStatement: function (this: CodeGenerator, stmt: LabeledStatement, flags: number) {
         return [stmt.label.name + ':', this.maybeBlock(stmt.body, flags & F_SEMICOLON_OPT ? S_TFFT : S_TFFF)];
     },
 
-    Program: function (stmt, _flags: number): CODEOUT {
-        var result, fragment, i, iz, bodyFlags;
-        iz = stmt.body.length;
-        result = [safeConcatenation && iz > 0 ? '\n' : ''];
-        bodyFlags = S_TFTF;
-        for (i = 0; i < iz; ++i) {
+    Program: function (this: CodeGenerator, stmt: Module | Script, _flags: number) {
+        const iz = stmt.body.length;
+        const result: [] = [safeConcatenation && iz > 0 ? '\n' : ''];
+        let bodyFlags = S_TFTF;
+        for (let i = 0; i < iz; ++i) {
             if (!safeConcatenation && i === iz - 1) {
                 bodyFlags |= F_SEMICOLON_OPT;
             }
@@ -1701,7 +1678,7 @@ CodeGenerator.Statement = {
                 }
             }
 
-            fragment = addIndent(this.generateStatement(stmt.body[i], bodyFlags));
+            const fragment = addIndent(this.generateStatement(stmt.body[i], bodyFlags));
             result.push(fragment);
             if (i + 1 < iz && !endsWithLineTerminator(toSourceNodeWhenNeeded(fragment).toString())) {
                 if (preserveBlankLines) {
@@ -1766,7 +1743,7 @@ merge(CodeGenerator.prototype, CodeGenerator.Statement);
 // Expressions.
 
 CodeGenerator.Expression = {
-    SequenceExpression: function (expr: SequenceExpression, precedence: number, flags: number): CODEOUT {
+    SequenceExpression: function (expr: SequenceExpression, precedence: number, flags: number) {
         var result, i, iz;
         if (Precedence.Sequence < precedence) {
             flags |= F_ALLOW_IN;
@@ -1781,15 +1758,15 @@ CodeGenerator.Expression = {
         return parenthesize(result, Precedence.Sequence, precedence);
     },
 
-    AssignmentExpression: function (expr, precedence: number, flags: number): CODEOUT {
+    AssignmentExpression: function (expr, precedence: number, flags: number) {
         return this.generateAssignment(expr.left, expr.right, expr.operator, precedence, flags);
     },
 
-    ArrowFunctionExpression: function (expr, precedence, _flags: number): CODEOUT {
+    ArrowFunctionExpression: function (this: CodeGenerator, expr: ArrowFunctionExpression, precedence, _flags: number) {
         return parenthesize(this.generateFunctionBody(expr), Precedence.ArrowFunction, precedence);
     },
 
-    ConditionalExpression: function (expr, precedence: number, flags: number): CODEOUT {
+    ConditionalExpression: function (expr, precedence: number, flags: number) {
         if (Precedence.Conditional < precedence) {
             flags |= F_ALLOW_IN;
         }
@@ -1806,11 +1783,11 @@ CodeGenerator.Expression = {
         );
     },
 
-    LogicalExpression: function (expr: BinaryExpression, precedence: number, flags: number): CODEOUT {
+    LogicalExpression: function (expr: BinaryExpression, precedence: number, flags: number) {
         return this.BinaryExpression(expr, precedence, flags);
     },
 
-    BinaryExpression: function (this: CodeGenerator, expr: BinaryExpression, precedence: number, flags: number): CODEOUT {
+    BinaryExpression: function (this: CodeGenerator, expr: BinaryExpression, precedence: number, flags: number) {
         var result, currentPrecedence, fragment, leftSource;
         currentPrecedence = BinaryPrecedence[expr.operator];
 
@@ -1847,7 +1824,7 @@ CodeGenerator.Expression = {
         return parenthesize(result, currentPrecedence, precedence);
     },
 
-    CallExpression: function (this: CodeGenerator, expr: CallExpression, precedence: number, flags: number): CODEOUT {
+    CallExpression: function (this: CodeGenerator, expr: CallExpression, precedence: number, flags: number) {
         var result, i, iz;
         // F_ALLOW_UNPARATH_NEW becomes false.
         result = [this.generateExpression(expr.callee, Precedence.Call, E_TTF)];
@@ -1866,7 +1843,7 @@ CodeGenerator.Expression = {
         return parenthesize(result, Precedence.Call, precedence);
     },
 
-    NewExpression: function (this: CodeGenerator, expr: NewExpression, precedence: number, flags: number): CODEOUT {
+    NewExpression: function (this: CodeGenerator, expr: NewExpression, precedence: number, flags: number) {
         var result, length, i, iz, itemFlags;
         length = expr['arguments'].length;
 
@@ -1890,7 +1867,7 @@ CodeGenerator.Expression = {
         return parenthesize(result, Precedence.New, precedence);
     },
 
-    MemberExpression: function (this: CodeGenerator, expr, precedence: number, flags: number) {
+    MemberExpression: function (this: CodeGenerator, expr: ComputedMemberExpression, precedence: number, flags: number) {
         var result, fragment;
 
         // F_ALLOW_UNPARATH_NEW becomes false.
@@ -1901,7 +1878,7 @@ CodeGenerator.Expression = {
             result.push(this.generateExpression(expr.property, Precedence.Sequence, flags & F_ALLOW_CALL ? E_TTT : E_TFT));
             result.push(']');
         } else {
-            if (expr.object.type === Syntax.Literal && typeof expr.object.value === 'number') {
+            if (isLiteral(expr.object) && typeof expr.object.value === 'number') {
                 fragment = toSourceNodeWhenNeeded(result).toString();
                 // When the following conditions are all true,
                 //   1. No floating point
@@ -1925,7 +1902,7 @@ CodeGenerator.Expression = {
         return parenthesize(result, Precedence.Member, precedence);
     },
 
-    UnaryExpression: function (this: CodeGenerator, expr: UnaryExpression, precedence: number, _flags: number): CODEOUT {
+    UnaryExpression: function (this: CodeGenerator, expr: UnaryExpression, precedence: number, _flags: number) {
         var result, fragment, rightCharCode, leftSource, leftCharCode;
         fragment = this.generateExpression(expr.argument, Precedence.Unary, E_TTT);
 
@@ -1958,7 +1935,7 @@ CodeGenerator.Expression = {
         return parenthesize(result, Precedence.Unary, precedence);
     },
 
-    YieldExpression: function (this: CodeGenerator, expr: YieldExpression, precedence: number, _flags: number): CODEOUT {
+    YieldExpression: function (this: CodeGenerator, expr: YieldExpression, precedence: number, _flags: number) {
         var result;
         if (expr.delegate) {
             result = 'yield*';
@@ -1971,7 +1948,7 @@ CodeGenerator.Expression = {
         return parenthesize(result, Precedence.Yield, precedence);
     },
 
-    AwaitExpression: function (this: CodeGenerator, expr: AwaitExpression, precedence: number, _flags: number): CODEOUT {
+    AwaitExpression: function (this: CodeGenerator, expr: AwaitExpression, precedence: number, _flags: number) {
         var result = join(expr.delegate ? 'await*' : 'await', this.generateExpression(expr.argument, Precedence.Await, E_TTT));
         return parenthesize(result, Precedence.Await, precedence);
     },
@@ -1983,7 +1960,7 @@ CodeGenerator.Expression = {
         return parenthesize([this.generateExpression(expr.argument, Precedence.Postfix, E_TTT), expr.operator], Precedence.Postfix, precedence);
     },
 
-    FunctionExpression: function (this: CodeGenerator, expr: FunctionExpression, _precedence: number, _flags: number): CODEOUT {
+    FunctionExpression: function (this: CodeGenerator, expr: FunctionExpression, _precedence: number, _flags: number) {
         var result = [generateAsyncPrefix(expr, true), 'function'];
         if (expr.id) {
             result.push(generateStarSuffix(expr) || noEmptySpace());
@@ -1995,15 +1972,15 @@ CodeGenerator.Expression = {
         return result;
     },
 
-    ExportBatchSpecifier: function (_expr, _precedence: number, _flags: number): CODEOUT {
+    ExportBatchSpecifier: function (_expr, _precedence: number, _flags: number) {
         return '*';
     },
 
-    ArrayPattern: function (this: CodeGenerator, expr: ArrayPattern, precedence: number, flags: number): CODEOUT {
+    ArrayPattern: function (this: CodeGenerator, expr: ArrayPattern, precedence: number, flags: number) {
         return this.ArrayExpression(expr, precedence, flags);
     },
 
-    ArrayExpression: function (expr, _precedence: number, _flags: number): CODEOUT {
+    ArrayExpression: function (expr, _precedence: number, _flags: number) {
         var result,
             multiline,
             that = this;
@@ -2039,7 +2016,7 @@ CodeGenerator.Expression = {
         return result;
     },
 
-    ClassExpression: function (expr: ClassExpression, _precedence: number, _flags: number): CODEOUT {
+    ClassExpression: function (expr: ClassExpression, _precedence: number, _flags: number) {
         var result, fragment;
         result = ['class'];
         if (expr.id) {
@@ -2054,7 +2031,7 @@ CodeGenerator.Expression = {
         return result;
     },
 
-    MethodDefinition: function (expr: MethodDefinition, _precedence: number, _flags: number): CODEOUT {
+    MethodDefinition: function (expr: MethodDefinition, _precedence: number, _flags: number) {
         var result, fragment;
         if (expr['static']) {
             result = ['static' + space];
@@ -2069,7 +2046,7 @@ CodeGenerator.Expression = {
         return join(result, fragment);
     },
 
-    Property: function (expr, _precedence: number, _flags: number): CODEOUT {
+    Property: function (expr, _precedence: number, _flags: number) {
         if (expr.kind === 'get' || expr.kind === 'set') {
             return [expr.kind, noEmptySpace(), this.generatePropertyKey(expr.key, expr.computed), this.generateFunctionBody(expr.value)];
         }
@@ -2088,7 +2065,7 @@ CodeGenerator.Expression = {
         return [this.generatePropertyKey(expr.key, expr.computed), ':' + space, this.generateExpression(expr.value, Precedence.Assignment, E_TTT)];
     },
 
-    ObjectExpression: function (expr: ObjectExpression, _precedence: number, _flags: number): CODEOUT {
+    ObjectExpression: function (expr: ObjectExpression, _precedence: number, _flags: number) {
         var multiline,
             result,
             fragment,
@@ -2141,11 +2118,11 @@ CodeGenerator.Expression = {
         return result;
     },
 
-    AssignmentPattern: function (this: CodeGenerator, expr: AssignmentPattern, precedence: number, flags: number): CODEOUT {
+    AssignmentPattern: function (this: CodeGenerator, expr: AssignmentPattern, precedence: number, flags: number) {
         return this.generateAssignment(expr.left, expr.right, '=', precedence, flags);
     },
 
-    ObjectPattern: function (expr: ObjectPattern, _precedence: number, _flags: number): CODEOUT {
+    ObjectPattern: function (expr: ObjectPattern, _precedence: number, _flags: number) {
         var result,
             i,
             iz,
@@ -2192,23 +2169,23 @@ CodeGenerator.Expression = {
         return result;
     },
 
-    ThisExpression: function (_expr, _precedence: number, _flags: number): CODEOUT {
+    ThisExpression: function (_expr, _precedence: number, _flags: number) {
         return 'this';
     },
 
-    Super: function (expr, precedence: number, flags: number): CODEOUT {
+    Super: function (expr, precedence: number, flags: number) {
         return 'super';
     },
 
-    Identifier: function (expr, _precedence: number, _flags: number): CODEOUT {
+    Identifier: function (expr, _precedence: number, _flags: number) {
         return generateIdentifier(expr);
     },
 
-    ImportDefaultSpecifier: function (expr, _precedence: number, _flags: number): CODEOUT {
+    ImportDefaultSpecifier: function (expr, _precedence: number, _flags: number) {
         return generateIdentifier(expr.id);
     },
 
-    ImportNamespaceSpecifier: function (expr, _precedence: number, _flags: number): CODEOUT {
+    ImportNamespaceSpecifier: function (expr, _precedence: number, _flags: number) {
         var result = ['*'];
         if (expr.id) {
             result.push(space + 'as' + noEmptySpace() + generateIdentifier(expr.id));
@@ -2238,7 +2215,7 @@ CodeGenerator.Expression = {
         return result;
     },
 
-    Literal: function (expr, _precedence: number, _flags: number): CODEOUT {
+    Literal: function (expr: Literal, _precedence: number, _flags: number) {
         var raw;
         if (expr.hasOwnProperty('raw') && parse && extra.raw) {
             try {
@@ -2272,11 +2249,11 @@ CodeGenerator.Expression = {
         return generateRegExp(expr.value);
     },
 
-    GeneratorExpression: function (expr, precedence: number, flags: number): CODEOUT {
+    GeneratorExpression: function (expr, precedence: number, flags: number) {
         return this.ComprehensionExpression(expr, precedence, flags);
     },
 
-    ComprehensionExpression: function (expr, _precedence: number, _flags: number): CODEOUT {
+    ComprehensionExpression: function (expr, _precedence: number, _flags: number) {
         // GeneratorExpression should be parenthesized with (...), ComprehensionExpression with [...]
         // Due to https://bugzilla.mozilla.org/show_bug.cgi?id=883468 position of expr.body can differ in Spidermonkey and ES6
 
@@ -2321,7 +2298,7 @@ CodeGenerator.Expression = {
         return result;
     },
 
-    ComprehensionBlock: function (expr: ComprehensionBlock, _precedence: number, _flags: number): CODEOUT {
+    ComprehensionBlock: function (expr: ComprehensionBlock, _precedence: number, _flags: number) {
         var fragment;
         if (expr.left.type === Syntax.VariableDeclaration) {
             fragment = [expr.left.kind, noEmptySpace(), this.generateStatement(expr.left.declarations[0], S_FFFF)];
@@ -2335,11 +2312,11 @@ CodeGenerator.Expression = {
         return ['for' + space + '(', fragment, ')'];
     },
 
-    SpreadElement: function (expr: SpreadElement, _precedence: number, _flags: number): CODEOUT {
+    SpreadElement: function (expr: SpreadElement, _precedence: number, _flags: number) {
         return ['...', this.generateExpression(expr.argument, Precedence.Assignment, E_TTT)];
     },
 
-    TaggedTemplateExpression: function (expr, precedence: number, flags: number): CODEOUT {
+    TaggedTemplateExpression: function (expr, precedence: number, flags: number) {
         var itemFlags = E_TTF;
         if (!(flags & F_ALLOW_CALL)) {
             itemFlags = E_TFF;
@@ -2348,13 +2325,13 @@ CodeGenerator.Expression = {
         return parenthesize(result, Precedence.TaggedTemplate, precedence);
     },
 
-    TemplateElement: function (expr, _precedence: number, _flags: number): CODEOUT {
+    TemplateElement: function (expr, _precedence: number, _flags: number) {
         // Don't use "cooked". Since tagged template can use raw template
         // representation. So if we do so, it breaks the script semantics.
         return expr.value.raw;
     },
 
-    TemplateLiteral: function (this: CodeGenerator, expr: TemplateLiteral, _precedence: number, _flags: number): CODEOUT {
+    TemplateLiteral: function (this: CodeGenerator, expr: TemplateLiteral, _precedence: number, _flags: number) {
         var result, i, iz;
         result = ['`'];
         for (i = 0, iz = expr.quasis.length; i < iz; ++i) {
@@ -2369,7 +2346,7 @@ CodeGenerator.Expression = {
         return result;
     },
 
-    ModuleSpecifier: function (expr, precedence: number, flags: number): CODEOUT {
+    ModuleSpecifier: function (expr, precedence: number, flags: number) {
         return this.Literal(expr, precedence, flags);
     },
 };
@@ -2391,7 +2368,7 @@ function generateInternal(node: Module | Script) {
 }
 
 export interface GenerateOptions {
-    parse?: any;
+    parse?: (arg: unknown) => unknown;
     comment?: boolean;
     file?: string;
     format?: {
@@ -2491,7 +2468,7 @@ export function generate(node: Module | Script, options?: GenerateOptions) {
     return pair.map.toString();
 }
 
-FORMAT_MINIFY = {
+const FORMAT_MINIFY = {
     indent: {
         style: '',
         base: 0,
@@ -2505,7 +2482,7 @@ FORMAT_MINIFY = {
     semicolons: false,
 };
 
-FORMAT_DEFAULTS = getDefaultOptions().format;
+const FORMAT_DEFAULTS = getDefaultOptions().format;
 
 export const escodegen = {
     generate: generate,

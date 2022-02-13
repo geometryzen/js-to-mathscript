@@ -2,9 +2,14 @@ import { MetaData } from './MetaData';
 import { SourceLocation } from './scanner';
 import { Syntax } from './syntax';
 
-// TODO: Looks a lot like a VisitableNode
+/**
+ * TODO: Should be part of the tree? 
+ */
 export interface Comment {
-    type: string;
+    /**
+     *
+     */
+    type: 'Line' | 'Block';
     value: string;
     range?: [number, number];
     loc?: SourceLocation;

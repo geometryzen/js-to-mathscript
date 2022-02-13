@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { GenerateOptions, generate } from './ecmascript/index';
+import { GenerateOptions, generate, Identifier } from './ecmascript/index';
 import {
   ArrayExpression,
   ArrowFunctionExpression,
@@ -322,17 +322,8 @@ function visit(node: { type: string } | null, options: TranspileOptions): void {
             case 'function': {
               const callExpr = <CallExpression>node;
               callExpr.type = Syntax.CallExpression;
-              callExpr.callee = {
-                type: Syntax.MemberExpression,
-                computed: false,
-                object: { type: Syntax.Identifier, name: options.namespace },
-                property: {
-                  type: Syntax.Identifier,
-                  name: options.binOp[binExpr.operator].name,
-                },
-                // Not sure waht this does.
-                optional: false
-              };
+              // TODO: set optional to false?
+              callExpr.callee = new StaticMemberExpression(new Identifier(options.namespace), new Identifier(options.binOp[binExpr.operator].name));
               visit(binExpr.left, options);
               visit(binExpr.right, options);
               callExpr.arguments = [binExpr.left, binExpr.right];
@@ -517,19 +508,8 @@ function visit(node: { type: string } | null, options: TranspileOptions): void {
         if (options.operatorOverloading && unaryExpr.operator && options.unaryOp[unaryExpr.operator]) {
           const callExpr = <CallExpression>node;
           callExpr.type = Syntax.CallExpression;
-          callExpr.callee = {
-            type: Syntax.MemberExpression,
-            computed: false,
-            object: {
-              type: Syntax.Identifier,
-              name: options.namespace,
-            },
-            property: {
-              type: Syntax.Identifier,
-              name: options.unaryOp[unaryExpr.operator].name,
-            },
-            optional: false
-          };
+          // TODO: Need to set optional to false?
+          callExpr.callee = new StaticMemberExpression(new Identifier(options.namespace), new Identifier(options.unaryOp[unaryExpr.operator].name));
           visit(unaryExpr.argument, options);
           callExpr.arguments = [unaryExpr.argument];
         } else {
@@ -545,19 +525,8 @@ function visit(node: { type: string } | null, options: TranspileOptions): void {
             case 'function': {
               const callExpr = <CallExpression>node;
               callExpr.type = Syntax.CallExpression;
-              callExpr.callee = {
-                type: Syntax.MemberExpression,
-                computed: false,
-                object: {
-                  type: Syntax.Identifier,
-                  name: options.namespace,
-                },
-                property: {
-                  type: Syntax.Identifier,
-                  name: options.unaryOp[updateExpr.operator].name,
-                },
-                optional: false
-              };
+              // TODO: Need to set optional to false?
+              callExpr.callee = new StaticMemberExpression(new Identifier(options.namespace), new Identifier(options.unaryOp[updateExpr.operator].name))
               visit(updateExpr.argument, options);
               callExpr.arguments = [updateExpr.argument];
               break;

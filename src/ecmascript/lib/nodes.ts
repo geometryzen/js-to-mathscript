@@ -46,6 +46,7 @@ export type PatternParam = ArrayPatternElement | Identifier | BindingPattern | E
 export type Statement =
   | AsyncFunctionDeclaration
   | BreakStatement
+  | ClassDeclaration
   | ContinueStatement
   | DebuggerStatement
   | DoWhileStatement
@@ -57,6 +58,7 @@ export type Statement =
   | ForOfStatement
   | FunctionDeclaration
   | IfStatement
+  | LabeledStatement
   | ReturnStatement
   | SwitchStatement
   | ThrowStatement
@@ -109,33 +111,41 @@ export interface BaseNode extends BaseNodeWithoutComments {
   trailingComments: Comment[];
 }
 
-export class ArrayExpression {
+export class ArrayExpression implements BaseNode {
   type: StatementType;
   readonly elements: ArrayExpressionElement[];
   constructor(elements: ArrayExpressionElement[]) {
     this.type = Syntax.ArrayExpression;
     this.elements = elements;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export function isArrayExpression(p: { type: StatementType }): p is ArrayExpression {
   return p.type === Syntax.ArrayExpression;
 }
 
-export class ArrayPattern {
+export class ArrayPattern implements BaseNode {
   readonly type: StatementType;
   readonly elements: ArrayPatternElement[];
   constructor(elements: ArrayPatternElement[]) {
     this.type = Syntax.ArrayPattern;
     this.elements = elements;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export function isArrayPattern(p: { type: StatementType }): p is ArrayPattern {
   return p.type === Syntax.ArrayPattern;
 }
 
-export class ArrowFunctionExpression {
+export class ArrowFunctionExpression implements BaseNode {
   readonly type: StatementType;
   readonly id: Identifier | null;
   readonly params: (FunctionParameter | PatternParam)[];
@@ -152,9 +162,17 @@ export class ArrowFunctionExpression {
     this.expression = expression;
     this.async = false;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class AssignmentExpression {
+export function isArrowFunctionExpression(p: { type: StatementType }): p is ArrowFunctionExpression {
+  return p.type === Syntax.ArrowFunctionExpression;
+}
+
+export class AssignmentExpression implements BaseNode {
   type: StatementType;
   operator: string;
   readonly left: Expression;
@@ -165,13 +183,17 @@ export class AssignmentExpression {
     this.left = left;
     this.right = right;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export function isAssignmentExpression(p: { type: StatementType }): p is AssignmentExpression {
   return p.type === Syntax.AssignmentExpression;
 }
 
-export class AssignmentPattern {
+export class AssignmentPattern implements BaseNode {
   readonly type: StatementType;
   readonly left: BindingIdentifier | BindingPattern;
   readonly right: Expression;
@@ -180,13 +202,17 @@ export class AssignmentPattern {
     this.left = left;
     this.right = right;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export function isAssignmentPattern(p: { type: StatementType }): p is AssignmentPattern {
   return p.type === Syntax.AssignmentPattern;
 }
 
-export class AsyncArrowFunctionExpression {
+export class AsyncArrowFunctionExpression implements BaseNode {
   readonly type: StatementType;
   readonly id: Identifier | null;
   readonly params: (FunctionParameter | PatternParam)[];
@@ -203,6 +229,10 @@ export class AsyncArrowFunctionExpression {
     this.expression = expression;
     this.async = true;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export class AsyncFunctionDeclaration implements BaseNode {
@@ -229,7 +259,7 @@ export class AsyncFunctionDeclaration implements BaseNode {
   range?: [number, number];
 }
 
-export class AsyncFunctionExpression {
+export class AsyncFunctionExpression implements BaseNode {
   readonly type: StatementType;
   readonly id: Identifier | null;
   readonly params: FunctionParameter[];
@@ -246,21 +276,29 @@ export class AsyncFunctionExpression {
     this.expression = false;
     this.async = true;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class AwaitExpression {
+export class AwaitExpression implements BaseNode {
   readonly type: StatementType;
   readonly argument: Expression;
   constructor(argument: Expression) {
     this.type = Syntax.AwaitExpression;
     this.argument = argument;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 // TODO: Complete
 export type BinaryOperator = '+' | '-'
 
-export class BinaryExpression {
+export class BinaryExpression implements BaseNode {
   type: StatementType;
   operator: string;
   readonly left: Expression;
@@ -272,15 +310,23 @@ export class BinaryExpression {
     this.left = left;
     this.right = right;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class BlockStatement {
+export class BlockStatement implements BaseNode {
   readonly type: StatementType;
-  readonly body: Statement[];
-  constructor(body: Statement[]) {
+  readonly body: Statement[] | StatementListItem[];
+  constructor(body: Statement[] | StatementListItem[]) {
     this.type = Syntax.BlockStatement;
     this.body = body;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export class BreakStatement implements BaseNode {
@@ -296,7 +342,7 @@ export class BreakStatement implements BaseNode {
   range?: [number, number];
 }
 
-export class CallExpression {
+export class CallExpression implements BaseNode {
   type: string;
   callee: Expression | Import;
   arguments: ArgumentListElement[];
@@ -306,9 +352,13 @@ export class CallExpression {
     this.callee = callee;
     this.arguments = args;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class CatchClause {
+export class CatchClause implements BaseNode {
   readonly type: StatementType;
   readonly param: BindingIdentifier | BindingPattern;
   readonly body: BlockStatement;
@@ -317,18 +367,26 @@ export class CatchClause {
     this.param = param;
     this.body = body;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ClassBody {
+export class ClassBody implements BaseNode {
   readonly type: StatementType;
   readonly body: (Property | MethodDefinition)[];
   constructor(body: (Property | MethodDefinition)[]) {
     this.type = Syntax.ClassBody;
     this.body = body;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ClassDeclaration {
+export class ClassDeclaration implements BaseNode {
   readonly type: StatementType;
   readonly id: Identifier | null;
   readonly superClass: Identifier | Expression | null;
@@ -339,9 +397,13 @@ export class ClassDeclaration {
     this.superClass = superClass;
     this.body = body;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ClassExpression {
+export class ClassExpression implements BaseNode {
   readonly type: StatementType;
   readonly id: Identifier | null;
   readonly superClass: Identifier | Expression | null;
@@ -352,22 +414,36 @@ export class ClassExpression {
     this.superClass = superClass;
     this.body = body;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ComputedMemberExpression {
+export class MemberExpression implements BaseNode {
   readonly type: StatementType;
   readonly computed: boolean;
   readonly object: Expression;
   readonly property: Expression;
-  constructor(object: Expression, property: Expression) {
+  constructor(object: Expression, property: Expression, computed: boolean) {
     this.type = Syntax.MemberExpression;
-    this.computed = true;
+    this.computed = computed;
     this.object = object;
     this.property = property;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ConditionalExpression {
+export class ComputedMemberExpression extends MemberExpression {
+  constructor(object: Expression, property: Expression) {
+    super(object, property, true);
+  }
+}
+
+export class ConditionalExpression implements BaseNode {
   readonly type: StatementType;
   readonly test: Expression;
   readonly consequent: Expression;
@@ -378,6 +454,10 @@ export class ConditionalExpression {
     this.consequent = consequent;
     this.alternate = alternate;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export class ContinueStatement implements BaseNode {
@@ -404,7 +484,7 @@ export class DebuggerStatement implements BaseNode {
   range?: [number, number];
 }
 
-export class Directive {
+export class Directive implements BaseNode {
   readonly type: StatementType;
   readonly expression: Expression;
   readonly directive: string;
@@ -413,9 +493,13 @@ export class Directive {
     this.expression = expression;
     this.directive = directive;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class DoWhileStatement {
+export class DoWhileStatement implements BaseNode {
   readonly type: StatementType;
   body: Statement;
   readonly test: Expression;
@@ -424,34 +508,50 @@ export class DoWhileStatement {
     this.body = body;
     this.test = test;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class EmptyStatement {
+export class EmptyStatement implements BaseNode {
   readonly type: StatementType;
   constructor() {
     this.type = Syntax.EmptyStatement;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ExportAllDeclaration {
+export class ExportAllDeclaration implements BaseNode {
   readonly type: StatementType;
   readonly source: Literal;
   constructor(source: Literal) {
     this.type = Syntax.ExportAllDeclaration;
     this.source = source;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ExportDefaultDeclaration {
+export class ExportDefaultDeclaration implements BaseNode {
   readonly type: StatementType;
   readonly declaration: ExportableDefaultDeclaration;
   constructor(declaration: ExportableDefaultDeclaration) {
     this.type = Syntax.ExportDefaultDeclaration;
     this.declaration = declaration;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ExportNamedDeclaration {
+export class ExportNamedDeclaration implements BaseNode {
   readonly type: StatementType;
   readonly declaration: ExportableNamedDeclaration | StatementListItem | null;
   readonly specifiers: ExportSpecifier[];
@@ -462,9 +562,13 @@ export class ExportNamedDeclaration {
     this.specifiers = specifiers;
     this.source = source;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ExportSpecifier {
+export class ExportSpecifier implements BaseNode {
   readonly type: StatementType;
   readonly exported: Identifier;
   readonly local: Identifier;
@@ -473,58 +577,78 @@ export class ExportSpecifier {
     this.exported = exported;
     this.local = local;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ExpressionStatement {
+export class ExpressionStatement implements BaseNode {
   readonly type: StatementType;
   readonly expression: Expression;
   constructor(expression: Expression) {
     this.type = Syntax.ExpressionStatement;
     this.expression = expression;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ForInStatement {
+export class ForInStatement implements BaseNode {
   readonly type: StatementType;
   readonly left: Expression;
   readonly right: Expression;
-  readonly body: Statement;
+  readonly body: Statement | Expression;
   readonly each: boolean;
-  constructor(left: Expression, right: Expression, body: Statement) {
+  constructor(left: Expression, right: Expression, body: Statement | Expression) {
     this.type = Syntax.ForInStatement;
     this.left = left;
     this.right = right;
     this.body = body;
     this.each = false;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ForOfStatement {
+export class ForOfStatement implements BaseNode {
   readonly type: StatementType;
   readonly left: Expression;
   readonly right: Expression;
-  readonly body: Statement;
-  constructor(left: Expression, right: Expression, body: Statement) {
+  readonly body: Statement | Expression;
+  constructor(left: Expression, right: Expression, body: Statement | Expression) {
     this.type = Syntax.ForOfStatement;
     this.left = left;
     this.right = right;
     this.body = body;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ForStatement {
+export class ForStatement implements BaseNode {
   readonly type: StatementType;
   readonly init: Expression | null;
   readonly test: Expression | null;
   readonly update: Expression | null;
-  body: Statement;
-  constructor(init: Expression | null, test: Expression | null, update: Expression | null, body: Statement) {
+  body: Statement | Expression;
+  constructor(init: Expression | null, test: Expression | null, update: Expression | null, body: Statement | Expression) {
     this.type = Syntax.ForStatement;
     this.init = init;
     this.test = test;
     this.update = update;
     this.body = body;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export class FunctionDeclaration implements BaseNode {
@@ -551,7 +675,7 @@ export class FunctionDeclaration implements BaseNode {
   range?: [number, number];
 }
 
-export class FunctionExpression implements BaseNodeWithoutComments {
+export class FunctionExpression implements BaseNode {
   readonly type: StatementType;
   readonly id: Identifier | null;
   readonly params: FunctionParameter[];
@@ -568,9 +692,13 @@ export class FunctionExpression implements BaseNodeWithoutComments {
     this.expression = false;
     this.async = false;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class Identifier {
+export class Identifier implements BaseNode {
   type: StatementType;
   name: string;
   range: [number, number];
@@ -582,9 +710,12 @@ export class Identifier {
       throw new Error(`name must be a string, I think. (${typeof name})`);
     }
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
 }
 
-export class IfStatement {
+export class IfStatement implements BaseNode {
   readonly type: StatementType;
   readonly test: Expression;
   readonly consequent: Statement;
@@ -595,16 +726,24 @@ export class IfStatement {
     this.consequent = consequent;
     this.alternate = alternate;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class Import {
+export class Import implements BaseNode {
   readonly type: StatementType;
   constructor() {
     this.type = Syntax.Import;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ImportDeclaration {
+export class ImportDeclaration implements BaseNode {
   readonly type: StatementType;
   readonly specifiers: ImportDeclarationSpecifier[];
   readonly source: Literal;
@@ -613,27 +752,39 @@ export class ImportDeclaration {
     this.specifiers = specifiers;
     this.source = source;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ImportDefaultSpecifier {
+export class ImportDefaultSpecifier implements BaseNode {
   readonly type: StatementType;
   readonly local: Identifier;
   constructor(local: Identifier) {
     this.type = Syntax.ImportDefaultSpecifier;
     this.local = local;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ImportNamespaceSpecifier {
+export class ImportNamespaceSpecifier implements BaseNode {
   readonly type: StatementType;
   readonly local: Identifier;
   constructor(local: Identifier) {
     this.type = Syntax.ImportNamespaceSpecifier;
     this.local = local;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ImportSpecifier {
+export class ImportSpecifier implements BaseNode {
   readonly type: StatementType;
   readonly local: Identifier;
   readonly imported: Identifier;
@@ -642,20 +793,28 @@ export class ImportSpecifier {
     this.local = local;
     this.imported = imported;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class LabeledStatement {
+export class LabeledStatement implements BaseNode {
   readonly type: StatementType;
   readonly label: Identifier;
-  readonly body: Statement;
-  constructor(label: Identifier, body: Statement) {
+  readonly body: Statement | ClassDeclaration;
+  constructor(label: Identifier, body: Statement | ClassDeclaration) {
     this.type = Syntax.LabeledStatement;
     this.label = label;
     this.body = body;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class Literal {
+export class Literal implements BaseNode {
   readonly type: StatementType;
   readonly value: boolean | number | string | null;
   readonly raw: string;
@@ -665,9 +824,12 @@ export class Literal {
     this.value = value;
     this.raw = raw;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
 }
 
-export class MetaProperty {
+export class MetaProperty implements BaseNode {
   readonly type: StatementType;
   readonly meta: Identifier;
   readonly property: Identifier;
@@ -676,9 +838,13 @@ export class MetaProperty {
     this.meta = meta;
     this.property = property;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class MethodDefinition {
+export class MethodDefinition implements BaseNode {
   readonly type: StatementType;
   readonly key: Expression | null;
   readonly computed: boolean;
@@ -693,9 +859,13 @@ export class MethodDefinition {
     this.kind = kind;
     this.static = isStatic;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class Module {
+export class Module implements BaseNode {
   readonly type: StatementType;
   readonly body: StatementListItem[];
   readonly sourceType: string;
@@ -707,9 +877,13 @@ export class Module {
     this.body = body;
     this.sourceType = 'module';
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class NewExpression {
+export class NewExpression implements BaseNode {
   readonly type: StatementType;
   readonly callee: Expression;
   readonly arguments: ArgumentListElement[];
@@ -718,35 +892,47 @@ export class NewExpression {
     this.callee = callee;
     this.arguments = args;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ObjectExpression {
+export class ObjectExpression implements BaseNode {
   type: StatementType;
   readonly properties: ObjectExpressionProperty[];
   constructor(properties: ObjectExpressionProperty[]) {
     this.type = Syntax.ObjectExpression;
     this.properties = properties;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export function isObjectExpression(p: { type: StatementType }): p is ObjectExpression {
   return p.type === Syntax.ObjectExpression;
 }
 
-export class ObjectPattern {
+export class ObjectPattern implements BaseNode {
   readonly type: StatementType;
   readonly properties: ObjectPatternProperty[];
   constructor(properties: ObjectPatternProperty[]) {
     this.type = Syntax.ObjectPattern;
     this.properties = properties;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export function isObjectPattern(p: { type: StatementType }): p is ObjectPattern {
   return p.type === Syntax.ObjectPattern;
 }
 
-export class Property {
+export class Property implements BaseNode {
   readonly type: StatementType;
   readonly key: PropertyKey;
   readonly computed: boolean;
@@ -763,9 +949,13 @@ export class Property {
     this.method = method;
     this.shorthand = shorthand;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class RegexLiteral {
+export class RegexLiteral implements BaseNode {
   readonly type: StatementType;
   readonly value: RegExp;
   readonly raw: string;
@@ -776,44 +966,60 @@ export class RegexLiteral {
     this.raw = raw;
     this.regex = { pattern, flags };
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class RestElement {
+export class RestElement implements BaseNode {
   type: StatementType;
   argument: BindingIdentifier | BindingPattern | ReinterpretedExpressionPattern;
   constructor(argument: BindingIdentifier | BindingPattern | ReinterpretedExpressionPattern) {
     this.type = Syntax.RestElement;
     this.argument = argument;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export function isRestElement(p: { type: StatementType }): p is RestElement {
   return p.type === Syntax.RestElement;
 }
 
-export class RestProperty {
+export class RestProperty implements BaseNode {
   type: StatementType;
   argument: Expression;
   constructor(argument: Expression) {
     this.type = Syntax.RestProperty;
     this.argument = argument;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export function isRestProperty(p: { type: StatementType }): p is RestProperty {
   return p.type === Syntax.RestProperty;
 }
 
-export class ReturnStatement {
+export class ReturnStatement implements BaseNode {
   readonly type: StatementType;
   readonly argument: Expression | null;
   constructor(argument: Expression | null) {
     this.type = Syntax.ReturnStatement;
     this.argument = argument;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class Script {
+export class Script implements BaseNode {
   readonly type: StatementType;
   readonly body: StatementListItem[];
   readonly sourceType: string;
@@ -825,48 +1031,64 @@ export class Script {
     this.body = body;
     this.sourceType = 'script';
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class SequenceExpression {
+export class SequenceExpression implements BaseNode {
   readonly type: StatementType;
   readonly expressions: Expression[];
   constructor(expressions: Expression[]) {
     this.type = Syntax.SequenceExpression;
     this.expressions = expressions;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export function isSequenceExpression(p: { type: StatementType }): p is SequenceExpression {
   return p.type === Syntax.SequenceExpression;
 }
 
-export class SpreadElement implements BaseNodeWithoutComments {
+export class SpreadElement implements BaseNode {
   type: StatementType;
   readonly argument: Expression;
   constructor(argument: Expression) {
     this.type = Syntax.SpreadElement;
     this.argument = argument;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export function isSpreadElement(p: { type: StatementType }): p is SpreadElement {
   return p.type === Syntax.SpreadElement;
 }
 
-export class SpreadProperty {
+export class SpreadProperty implements BaseNode {
   readonly type: StatementType;
   readonly argument: Expression;
   constructor(argument: Expression) {
     this.type = Syntax.SpreadProperty;
     this.argument = argument;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export function isSpreadProperty(p: { type: StatementType }): p is SpreadProperty {
   return p.type === Syntax.SpreadProperty;
 }
 
-export class StaticMemberExpression {
+export class StaticMemberExpression implements BaseNode {
   readonly type: StatementType;
   readonly computed: boolean;
   readonly object: Expression;
@@ -877,27 +1099,39 @@ export class StaticMemberExpression {
     this.object = object;
     this.property = property;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class Super {
+export class Super implements BaseNode {
   readonly type: StatementType;
   constructor() {
     this.type = Syntax.Super;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class SwitchCase {
+export class SwitchCase implements BaseNode {
   readonly type: StatementType;
   readonly test: Expression;
-  readonly consequent: Statement[];
-  constructor(test: Expression, consequent: Statement[]) {
+  readonly consequent: Statement[] | StatementListItem[];
+  constructor(test: Expression, consequent: Statement[] | StatementListItem[]) {
     this.type = Syntax.SwitchCase;
     this.test = test;
     this.consequent = consequent;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class SwitchStatement {
+export class SwitchStatement implements BaseNode {
   readonly type: StatementType;
   readonly discriminant: Expression;
   readonly cases: SwitchCase[];
@@ -906,9 +1140,13 @@ export class SwitchStatement {
     this.discriminant = discriminant;
     this.cases = cases;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class TaggedTemplateExpression {
+export class TaggedTemplateExpression implements BaseNode {
   readonly type: StatementType;
   readonly tag: Expression;
   readonly quasi: TemplateLiteral;
@@ -917,6 +1155,10 @@ export class TaggedTemplateExpression {
     this.tag = tag;
     this.quasi = quasi;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export interface TemplateElementValue {
@@ -924,7 +1166,7 @@ export interface TemplateElementValue {
   raw: string;
 }
 
-export class TemplateElement {
+export class TemplateElement implements BaseNode {
   readonly type: StatementType;
   readonly value: TemplateElementValue;
   readonly tail: boolean;
@@ -933,9 +1175,13 @@ export class TemplateElement {
     this.value = value;
     this.tail = tail;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class TemplateLiteral {
+export class TemplateLiteral implements BaseNode {
   readonly type: StatementType;
   readonly quasis: TemplateElement[];
   readonly expressions: Expression[];
@@ -944,25 +1190,37 @@ export class TemplateLiteral {
     this.quasis = quasis;
     this.expressions = expressions;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ThisExpression {
+export class ThisExpression implements BaseNode {
   readonly type: StatementType;
   constructor() {
     this.type = Syntax.ThisExpression;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class ThrowStatement {
+export class ThrowStatement implements BaseNode {
   readonly type: StatementType;
   readonly argument: Expression;
   constructor(argument: Expression) {
     this.type = Syntax.ThrowStatement;
     this.argument = argument;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class TryStatement {
+export class TryStatement implements BaseNode {
   readonly type: StatementType;
   readonly block: BlockStatement;
   readonly handler: CatchClause | null;
@@ -973,9 +1231,13 @@ export class TryStatement {
     this.handler = handler;
     this.finalizer = finalizer;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class UnaryExpression {
+export class UnaryExpression implements BaseNode {
   readonly type: StatementType;
   readonly operator: string;
   readonly argument: Expression;
@@ -986,11 +1248,15 @@ export class UnaryExpression {
     this.argument = argument;
     this.prefix = true;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export type UpdateOperator = "++" | "--"
 
-export class UpdateExpression {
+export class UpdateExpression implements BaseNode {
   readonly type: StatementType;
   operator: string;
   readonly argument: Expression;
@@ -1001,6 +1267,10 @@ export class UpdateExpression {
     this.argument = argument;
     this.prefix = prefix;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export class VariableDeclaration implements BaseNode {
@@ -1018,7 +1288,7 @@ export class VariableDeclaration implements BaseNode {
   range?: [number, number];
 }
 
-export class VariableDeclarator {
+export class VariableDeclarator implements BaseNode {
   readonly type: StatementType;
   readonly id: BindingIdentifier | BindingPattern;
   readonly init: Expression | null;
@@ -1027,9 +1297,13 @@ export class VariableDeclarator {
     this.id = id;
     this.init = init;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class WhileStatement {
+export class WhileStatement implements BaseNode {
   readonly type: StatementType;
   readonly test: Expression;
   body: Statement;
@@ -1038,9 +1312,13 @@ export class WhileStatement {
     this.test = test;
     this.body = body;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class WithStatement {
+export class WithStatement implements BaseNode {
   readonly type: StatementType;
   readonly object: Expression;
   readonly body: Statement;
@@ -1049,9 +1327,13 @@ export class WithStatement {
     this.object = object;
     this.body = body;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
-export class YieldExpression {
+export class YieldExpression implements BaseNode {
   type: StatementType;
   argument: Expression | null;
   delegate: boolean;
@@ -1060,6 +1342,10 @@ export class YieldExpression {
     this.argument = argument;
     this.delegate = delegate;
   }
+  leadingComments: Comment[];
+  trailingComments: Comment[];
+  loc?: SourceLocation;
+  range?: [number, number];
 }
 
 export function isYieldExpression(p: { type: StatementType }): p is YieldExpression {

@@ -15,6 +15,7 @@ import {
   AsyncFunctionDeclaration,
   AsyncFunctionExpression,
   AwaitExpression,
+  BaseNode,
   BaseNodeWithoutComments,
   BinaryExpression,
   BindingIdentifier,
@@ -150,7 +151,7 @@ export interface Marker {
 
 const ArrowParameterPlaceHolder = 'ArrowParameterPlaceHolder';
 
-interface ArrowParameterPlaceHolderNode {
+interface ArrowParameterPlaceHolderNode extends BaseNode {
   type: string;
   // These may be patterns?
   params: Expression[];
@@ -1196,7 +1197,7 @@ export class Parser {
         type: ArrowParameterPlaceHolder,
         params: [],
         async: false,
-      };
+      } as ArrowParameterPlaceHolderNode;
     } else {
       const startToken = this.lookahead;
       let params: RawToken[] = [];
@@ -1210,7 +1211,7 @@ export class Parser {
           type: ArrowParameterPlaceHolder,
           params: [restElement],
           async: false,
-        };
+        } as ArrowParameterPlaceHolderNode;
       } else {
         let arrow = false;
         this.context.isBindingElement = true;
@@ -1237,7 +1238,7 @@ export class Parser {
                 type: ArrowParameterPlaceHolder,
                 params: patterns,
                 async: false,
-              };
+              } as ArrowParameterPlaceHolderNode;
             } else if (this.match('...')) {
               if (!this.context.isBindingElement) {
                 this.throwUnexpectedToken(this.lookahead);
@@ -1257,7 +1258,7 @@ export class Parser {
                 type: ArrowParameterPlaceHolder,
                 params: patterns,
                 async: false,
-              };
+              } as ArrowParameterPlaceHolderNode;
             } else {
               expressions.push(this.inheritCoverGrammar(this.parseAssignmentExpression));
             }
@@ -1279,7 +1280,7 @@ export class Parser {
                 type: ArrowParameterPlaceHolder,
                 params: [expr],
                 async: false,
-              };
+              } as ArrowParameterPlaceHolderNode;
             }
             if (!arrow) {
               if (!this.context.isBindingElement) {
@@ -1299,7 +1300,7 @@ export class Parser {
                 type: ArrowParameterPlaceHolder,
                 params: parameters,
                 async: false,
-              };
+              } as ArrowParameterPlaceHolderNode;
             }
           }
           this.context.isBindingElement = false;
@@ -1463,7 +1464,7 @@ export class Parser {
             type: ArrowParameterPlaceHolder,
             params: args,
             async: true,
-          };
+          } as ArrowParameterPlaceHolderNode;
         }
       } else if (this.match('[')) {
         this.context.isBindingElement = false;
@@ -1798,7 +1799,7 @@ export class Parser {
     options.simple = options.simple && isIdentifier(param);
   }
 
-  reinterpretAsCoverFormalsList(expr: { type: StatementType }) {
+  reinterpretAsCoverFormalsList(expr: BaseNode) {
     let params: PatternParam[] = [expr];
     let options: {
       simple: boolean;
@@ -1889,7 +1890,7 @@ export class Parser {
             type: ArrowParameterPlaceHolder,
             params: [pattern],
             async: true,
-          };
+          } as ArrowParameterPlaceHolderNode;
         }
       }
 
@@ -2763,7 +2764,7 @@ export class Parser {
       }
 
       this.context.labelSet[key] = true;
-      let body: Statement;
+      let body: Statement | ClassDeclaration;
       if (this.matchKeyword('class')) {
         this.tolerateUnexpectedToken(this.lookahead);
         body = this.parseClassDeclaration();
@@ -2964,7 +2965,7 @@ export class Parser {
     const node = this.createMarker();
 
     this.expect('{');
-    const body = this.parseDirectivePrologues();
+    const body: (Statement | StatementListItem)[] = this.parseDirectivePrologues();
 
     const previousLabelSet = this.context.labelSet;
     const previousInIteration = this.context.inIteration;
@@ -3611,7 +3612,7 @@ export class Parser {
     this.context.strict = true;
     this.context.isModule = true;
     const node = this.createMarker();
-    const body = this.parseDirectivePrologues();
+    const body: (Statement | StatementListItem)[] = this.parseDirectivePrologues();
     while (this.lookahead.type !== Token.EOF) {
       body.push(this.parseStatementListItem());
     }
@@ -3620,7 +3621,7 @@ export class Parser {
 
   parseScript(): Script {
     const node = this.createMarker();
-    const body = this.parseDirectivePrologues();
+    const body: (Statement | StatementListItem)[] = this.parseDirectivePrologues();
     while (this.lookahead.type !== Token.EOF) {
       body.push(this.parseStatementListItem());
     }
