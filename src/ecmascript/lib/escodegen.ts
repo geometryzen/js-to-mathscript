@@ -472,7 +472,7 @@ type TO_SOURCE_NODE_OUTPUT = SourceNode | string
 /**
  * convert generated to a SourceNode when source maps are enabled.
  */
-function toSourceNodeWhenNeeded(generated: CODEOUT, node?: Identifier | Expression): TO_SOURCE_NODE_OUTPUT {
+function toSourceNodeWhenNeeded(generated: CODEOUT, node?: Identifier | Expression): string | SourceNode {
     if (!sourceMap) {
         // with no source maps, generated is either an
         // array or a string.  if an array, flatten it.
@@ -480,27 +480,35 @@ function toSourceNodeWhenNeeded(generated: CODEOUT, node?: Identifier | Expressi
         if (Array.isArray(generated)) {
             return flattenToString(generated);
         } else {
-            return generated;
-        }
-    }
-    if (node == null) {
-        if (generated instanceof SourceNode) {
-            return generated;
-        } else {
-            return new SourceNode(null, null, sourceMap, generated, null);
+            if (typeof generated === 'string') {
+                return generated;
+            } else {
+                throw new Error(`Unexpected ${JSON.stringify(generated)}`);
+            }
         }
     } else {
-        if (node.loc) {
-            const loc = node.loc;
-            const start = loc.start;
-            return new SourceNode(start.line, start.column, sourceMap === true ? loc.source || null : sourceMap, generated, node.name || null);
+        if (node == null) {
+            if (generated instanceof SourceNode) {
+                return generated;
+            } else {
+                return new SourceNode(null, null, sourceMap, generated, null);
+            }
         } else {
-            return new SourceNode(null, null, sourceMap, generated, node.name || null);
+            if (node.loc) {
+                const loc = node.loc;
+                const start = loc.start;
+                return new SourceNode(start.line, start.column, sourceMap === true ? loc.source || null : sourceMap, generated, node.name || null);
+            } else {
+                return new SourceNode(null, null, sourceMap, generated, node.name || null);
+            }
         }
     }
 }
 
-function noEmptySpace() {
+/**
+ * Returns at least a single space if the module level space (string) variable is falsey.
+ */
+function noEmptySpace(): string {
     return space ? space : ' ';
 }
 
@@ -744,7 +752,7 @@ function addComments(stmt: Statement | BlockStatement | Expression, result: CODE
     return result;
 }
 
-function generateBlankLines(start: number, end: number, result: (string | ADD_INDENT_OUTPUT | TO_SOURCE_NODE_OUTPUT)[]): void {
+function generateBlankLines(start: number, end: number, result: CODEOUT[]): void {
     let newlineCount = 0;
     for (let j = start; j < end; j++) {
         if (sourceCode[j] === '\n') {
@@ -771,8 +779,13 @@ function generateVerbatimString(str: string): string[] {
     return result;
 }
 
+interface Verbatim {
+    content: string;
+    precedence: number;
+}
+
 function generateVerbatim(expr: Expression, precedence: number) {
-    const verbatim = expr[extra.verbatim];
+    const verbatim = (expr as unknown as { [vebatim: string]: string | Verbatim })[extra.verbatim];
 
     if (typeof verbatim === 'string') {
         const result = parenthesize(generateVerbatimString(verbatim), Precedence.Sequence, precedence);
@@ -858,10 +871,9 @@ class CodeGenerator {
     }
 
     generateStatement(stmt: Statement | BlockStatement, flags: number) {
-        // console.lg('CodeGenerator.generateStatement(stmt=..., flags=...)');
-        var result;
+        // console.lg(`CodeGenerator.generateStatement(stmt=${JSON.stringify(stmt)}, flags=${JSON.stringify(flags)})`);
 
-        result = this[stmt.type](stmt, flags);
+        let result: CODEOUT[] = (this as unknown as { [name: string]: Function })[stmt.type](stmt, flags);
 
         // Attach comments
 
@@ -871,35 +883,43 @@ class CodeGenerator {
 
         const fragment = toSourceNodeWhenNeeded(result).toString();
         if (stmt.type === Syntax.Program && !safeConcatenation && newline === '' && fragment.charAt(fragment.length - 1) === '\n') {
-            result = sourceMap ? toSourceNodeWhenNeeded(result).replaceRight(/\s+$/, '') : fragment.replace(/\s+$/, '');
+            if (sourceMap) {
+                console.log(`CodeGenerator.generateStatement(stmt=${JSON.stringify(stmt)}, flags=${JSON.stringify(flags)})`);
+                const sourceNode = toSourceNodeWhenNeeded(result);
+                const munged = sourceNode.replaceRight(/\s+$/, '');
+                return toSourceNodeWhenNeeded(munged, stmt);
+            }
+            else {
+                return toSourceNodeWhenNeeded(fragment.replace(/\s+$/, ''), stmt);
+            }
+        } else {
+            return toSourceNodeWhenNeeded(result, stmt);
         }
-
-        return toSourceNodeWhenNeeded(result, stmt);
     }
 
     generateExpression(expr: Expression, precedence: number, flags: number) {
         // console.lg(`CodeGenerator.generateExpression(expr=${JSON.stringify(expr)}, precedence=${precedence}, flags=${JSON.stringify(flags)})`);
-        var result, type;
-
-        type = expr.type || Syntax.Property;
+        const type = expr.type || Syntax.Property;
 
         if (extra.verbatim && expr.hasOwnProperty(extra.verbatim)) {
             return generateVerbatim(expr, precedence);
         }
 
-        if (typeof this[type] === 'function') {
-            result = this[type](expr, precedence, flags);
+        const target = (this as unknown as { [name: string]: Function })[type];
+        if (typeof target === 'function') {
+            // WARNING: Make sure to essentially call this[type] to ensure the scope is correct.            
+            let result: CODEOUT[] = (this as unknown as { [name: string]: Function })[type](expr, precedence, flags);
+
+            if (extra.comment) {
+                result = addComments(expr, result);
+            }
+            return toSourceNodeWhenNeeded(result, expr);
         } else {
             const msg = `CodeGenerator.generateExpression(expr=..., precedence=..., flags=...): this[type], where type=${JSON.stringify(
                 type
             )} is not a function.`;
             throw new Error(msg);
         }
-
-        if (extra.comment) {
-            result = addComments(expr, result);
-        }
-        return toSourceNodeWhenNeeded(result, expr);
     }
 
     maybeBlock(stmt: Expression | BlockStatement, flags: number): MAYBE_BLOCK_OUTPUT {
@@ -935,7 +955,6 @@ class CodeGenerator {
     }
 
     generateFunctionBody(node: FunctionDeclaration | FunctionExpression | ArrowFunctionExpression) {
-
 
         const result: CODEOUT = this.generateFunctionParams(node);
 
@@ -1038,7 +1057,7 @@ function generateMethodPrefix(prop: MethodDefinition): string {
 CodeGenerator.Statement = {
     BlockStatement: function (this: CodeGenerator, stmt: BlockStatement, flags: number) {
 
-        let result: (string | ADD_INDENT_OUTPUT | TO_SOURCE_NODE_OUTPUT)[] = ['{', newline];
+        let result: CODEOUT[] = ['{', newline];
 
         withIndent(() => {
             // handle functions without any code
@@ -1658,7 +1677,7 @@ CodeGenerator.Statement = {
 
     Program: function (this: CodeGenerator, stmt: Module | Script, _flags: number) {
         const iz = stmt.body.length;
-        const result: (string | ADD_INDENT_OUTPUT)[] = [safeConcatenation && iz > 0 ? '\n' : ''];
+        const result: CODEOUT[] = [safeConcatenation && iz > 0 ? '\n' : ''];
         let bodyFlags = S_TFTF;
         for (let i = 0; i < iz; ++i) {
             if (!safeConcatenation && i === iz - 1) {
