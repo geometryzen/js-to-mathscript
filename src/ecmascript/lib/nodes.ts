@@ -967,6 +967,10 @@ export class Property implements BaseNode {
   range?: [number, number];
 }
 
+export function isProperty(p: { type: StatementType }): p is Property {
+  return p.type === Syntax.Property;
+}
+
 export class RegexLiteral implements BaseNode {
   readonly type: StatementType;
   readonly value: RegExp;
@@ -1263,7 +1267,7 @@ export class TryStatement implements BaseNode {
 
 export class UnaryExpression implements BaseNode {
   readonly type: StatementType;
-  readonly operator: string;
+  operator: string;
   readonly argument: Expression;
   readonly prefix: boolean;
   constructor(operator: string, argument: Expression) {

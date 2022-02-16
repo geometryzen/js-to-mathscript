@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { GenerateOptions, generate, Identifier } from './ecmascript/index';
+import { GenerateOptions, generate, Identifier, ImportNamespaceSpecifier } from './ecmascript/index';
 import {
   ArrayExpression,
   ArrowFunctionExpression,
@@ -82,21 +82,17 @@ export interface OperatorTransform {
   /**
    * The nature of the transformation.
    */
-  kind: 'rename' | 'function';
+  kind: 'rename' | 'function' | 'error';
   /**
    * The transformed name.
    */
-  name: string;
+  value: string;
 }
 
-/**
- *
- */
-export interface TranspileOptions extends ParseOptions {
+export interface TranspileSettings extends ParseOptions {
   timeout?: number;
   noLoopCheck?: boolean;
-  operatorOverloading?: boolean;
-  namespace: string;
+  namespace?: string;
   /**
    * The replacements of unary operators that will be made.
    */
@@ -107,7 +103,24 @@ export interface TranspileOptions extends ParseOptions {
   unaryOp: { [name: string]: OperatorTransform };
 }
 
-function transpileTree(code: string, options: TranspileOptions, delegate?: ParseDelegate): Module | Script {
+/**
+ *
+ */
+export interface TranspileOptions extends ParseOptions {
+  timeout?: number;
+  noLoopCheck?: boolean;
+  namespace?: string;
+  /**
+   * The replacements of unary operators that will be made.
+   */
+  binOp?: { [name: string]: OperatorTransform };
+  /**
+  * The replacements of unary operators that will be made.
+  */
+  unaryOp?: { [name: string]: OperatorTransform };
+}
+
+function transpileTree(code: string, options: TranspileSettings, delegate?: ParseDelegate): Module | Script {
   // console.lg(`transpileTree(code=..., options=${JSON.stringify(options)})`);
   const tree = parse(code, options, delegate);
   // const tree = parseModule(code, options, delegate)
@@ -122,9 +135,16 @@ function transpileTree(code: string, options: TranspileOptions, delegate?: Parse
 /**
  * This is the function that we export.
  */
-export function jsToMathScript(code: string, transpileOptions: TranspileOptions, delegate?: ParseDelegate, generateOptions?: GenerateOptions): { code: string } {
-  // console.lg(`transpile(code=${JSON.stringify(code)} transpileOptions=${JSON.stringify(transpileOptions)})`);
-  const tree = transpileTree(code, transpileOptions, delegate);
+export function jsToMathScript(code: string, transpileOptions?: TranspileOptions, delegate?: ParseDelegate, generateOptions?: GenerateOptions): { code: string } {
+  const traceThis = "..."
+  if (code === traceThis) {
+    console.log(`transpile(code=${JSON.stringify(code)} transpileOptions=${JSON.stringify(transpileOptions)})`);
+  }
+  const transpileSettings: TranspileSettings = Object.assign({ binOp: {}, unaryOp: {} }, transpileOptions)
+  const tree = transpileTree(code, transpileSettings, delegate);
+  if (code === traceThis) {
+    console.log(JSON.stringify(tree, null, 2));
+  }
   const generated = generate(tree, generateOptions);
   if (typeof generated === 'string') {
     return { code: generated };
@@ -260,6 +280,12 @@ function visit(node: { type: string } | null, options: TranspileOptions): void {
         });
         break;
       }
+      case Syntax.ImportNamespaceSpecifier: {
+        const decl = <ImportNamespaceSpecifier>node;
+        visit(decl.local, options);
+        break;
+        break;
+      }
       case Syntax.ImportSpecifier: {
         const decl = <ImportSpecifier>node;
         visit(decl.imported, options);
@@ -317,13 +343,20 @@ function visit(node: { type: string } | null, options: TranspileOptions): void {
       case Syntax.BinaryExpression:
       case Syntax.LogicalExpression: {
         const binExpr = <BinaryExpression>node;
-        if (options.operatorOverloading && binExpr.operator && options.binOp[binExpr.operator]) {
+        if (binExpr.operator && options.binOp[binExpr.operator]) {
           switch (options.binOp[binExpr.operator].kind) {
             case 'function': {
               const callExpr = <CallExpression>node;
               callExpr.type = Syntax.CallExpression;
               // TODO: set optional to false?
-              callExpr.callee = new StaticMemberExpression(new Identifier(options.namespace), new Identifier(options.binOp[binExpr.operator].name));
+              const prop = new Identifier(options.binOp[binExpr.operator].value);
+              if (options.namespace) {
+                const obj = new Identifier(options.namespace);
+                callExpr.callee = new StaticMemberExpression(obj, prop);
+              }
+              else {
+                callExpr.callee = prop;
+              }
               visit(binExpr.left, options);
               visit(binExpr.right, options);
               callExpr.arguments = [binExpr.left, binExpr.right];
@@ -331,10 +364,17 @@ function visit(node: { type: string } | null, options: TranspileOptions): void {
             }
             case 'rename': {
               // TODO: Type Guard
-              binExpr.operator = options.binOp[binExpr.operator].name as BinaryOperator;
+              visit(binExpr.left, options);
+              visit(binExpr.right, options);
+              binExpr.operator = options.binOp[binExpr.operator].value as BinaryOperator;
+              break;
+            }
+            case 'error': {
+              throw new Error(options.binOp[binExpr.operator].value)
             }
           }
-        } else {
+        }
+        else {
           visit(binExpr.left, options);
           visit(binExpr.right, options);
         }
@@ -376,7 +416,7 @@ function visit(node: { type: string } | null, options: TranspileOptions): void {
       }
       case Syntax.AssignmentExpression: {
         const assignExpr = <AssignmentExpression>node;
-        if (options.operatorOverloading && assignExpr.operator && options.binOp[assignExpr.operator]) {
+        if (assignExpr.operator && options.binOp[assignExpr.operator]) {
           visit(assignExpr.left, options);
           visit(assignExpr.right, options);
         } else {
@@ -505,13 +545,33 @@ function visit(node: { type: string } | null, options: TranspileOptions): void {
       }
       case Syntax.UnaryExpression: {
         const unaryExpr = <UnaryExpression>node;
-        if (options.operatorOverloading && unaryExpr.operator && options.unaryOp[unaryExpr.operator]) {
-          const callExpr = <CallExpression>node;
-          callExpr.type = Syntax.CallExpression;
-          // TODO: Need to set optional to false?
-          callExpr.callee = new StaticMemberExpression(new Identifier(options.namespace), new Identifier(options.unaryOp[unaryExpr.operator].name));
-          visit(unaryExpr.argument, options);
-          callExpr.arguments = [unaryExpr.argument];
+        if (unaryExpr.operator && options.unaryOp[unaryExpr.operator]) {
+          switch (options.unaryOp[unaryExpr.operator].kind) {
+            case 'function': {
+              const callExpr = <CallExpression>node;
+              callExpr.type = Syntax.CallExpression;
+              // TODO: set optional to false?
+              const prop = new Identifier(options.unaryOp[unaryExpr.operator].value);
+              if (options.namespace) {
+                const obj = new Identifier(options.namespace);
+                callExpr.callee = new StaticMemberExpression(obj, prop);
+              }
+              else {
+                callExpr.callee = prop;
+              }
+              visit(unaryExpr.argument, options);
+              callExpr.arguments = [unaryExpr.argument];
+              break;
+            }
+            case 'rename': {
+              unaryExpr.operator = options.unaryOp[unaryExpr.operator].value
+              visit(unaryExpr.argument, options);
+              break;
+            }
+            case 'error': {
+              throw new Error(options.unaryOp[unaryExpr.operator].value)
+            }
+          }
         } else {
           visit(unaryExpr.argument, options);
         }
@@ -520,19 +580,19 @@ function visit(node: { type: string } | null, options: TranspileOptions): void {
       // Why do we have code here and not in the Unary expression?
       case Syntax.UpdateExpression: {
         const updateExpr = <UpdateExpression>node;
-        if (options.operatorOverloading && updateExpr.operator && options.unaryOp[updateExpr.operator]) {
+        if (updateExpr.operator && options.unaryOp[updateExpr.operator]) {
           switch (options.unaryOp[updateExpr.operator].kind) {
             case 'function': {
               const callExpr = <CallExpression>node;
               callExpr.type = Syntax.CallExpression;
               // TODO: Need to set optional to false?
-              callExpr.callee = new StaticMemberExpression(new Identifier(options.namespace), new Identifier(options.unaryOp[updateExpr.operator].name))
+              callExpr.callee = new StaticMemberExpression(new Identifier(options.namespace), new Identifier(options.unaryOp[updateExpr.operator].value))
               visit(updateExpr.argument, options);
               callExpr.arguments = [updateExpr.argument];
               break;
             }
             case 'rename': {
-              updateExpr.operator = options.unaryOp[updateExpr.operator].name as UpdateOperator
+              updateExpr.operator = options.unaryOp[updateExpr.operator].value as UpdateOperator
               visit(updateExpr.argument, options);
               break;
             }
