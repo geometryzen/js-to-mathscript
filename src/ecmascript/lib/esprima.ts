@@ -26,9 +26,10 @@ import { CommentHandler } from './comment-handler';
 import { JSXParser } from './jsx-parser';
 import { MetaData } from './MetaData';
 import { Module, Script } from './nodes';
-import { Parser } from './parser';
+import { CanBeParser, Parser } from './parser';
 import { TokenEntry } from './token';
 import { Config, Tokenizer } from './tokenizer';
+import { Error } from './error-handler';
 
 export interface ParseOptions {
     comment?: boolean;
@@ -80,7 +81,7 @@ export function parse(code: string, options?: ParseOptions, delegate?: ParseDele
         isModule = options.sourceType === 'module';
     }
 
-    let parser: Parser;
+    let parser: CanBeParser;
     if (options && typeof options.jsx === 'boolean' && options.jsx) {
         parser = new JSXParser(code, options, parserDelegate);
     } else {
@@ -131,11 +132,16 @@ export function tokenize(code: string, options: Config, delegate?: ParseDelegate
             tokens.push(token);
         }
     } catch (e) {
-        tokenizer.errorHandler.tolerate(e);
+        if (e instanceof Error) {
+            tokenizer.errorHandler.tolerate(e);
+        }
     }
 
     if (tokenizer.errorHandler.tolerant) {
-        tokens['errors'] = tokenizer.errors();
+        // WARNING: Danger Will Robinson!
+        // Using a hidden property.
+        // TODO: Where is this used? 
+        (tokens as unknown as { [key: string]: Error[] })["errors"] = tokenizer.errors();
     }
 
     return tokens;

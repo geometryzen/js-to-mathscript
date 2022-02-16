@@ -44,8 +44,9 @@ export class JSXParser extends Parser {
         super(code, options, delegate);
     }
 
-    parsePrimaryExpression(): Node.Expression | JSXNode.JSXElement {
-        return this.match('<') ? this.parseJSXRoot() : super.parsePrimaryExpression();
+    parsePrimaryExpression(): Node.Expression/* | JSXNode.JSXElement*/ {
+        // TODO: Either the base parser has to know about JSX or we sweep this under the rug, as here.
+        return this.match('<') ? (this.parseJSXRoot() as unknown as Node.Expression) : super.parsePrimaryExpression();
     }
 
     startJSX() {
@@ -317,7 +318,7 @@ export class JSXParser extends Parser {
     // Expect the next JSX token to match the specified punctuator.
     // If not, an exception will be thrown.
 
-    expectJSX(value) {
+    expectJSX(value: "{" | "}" | "<" | ">" | ":" | "." | "/" | "..." | "="): void | never {
         const token = this.nextJSXToken();
         if (token.type !== Token.Punctuator || token.value !== value) {
             this.throwUnexpectedToken(token);
@@ -326,7 +327,7 @@ export class JSXParser extends Parser {
 
     // Return true if the next JSX token matches the specified punctuator.
 
-    matchJSX(value) {
+    matchJSX(value: "{" | "}" | "<" | ">" | ":" | "." | "/" | "="): boolean {
         const next = this.peekJSXToken();
         return next.type === Token.Punctuator && next.value === value;
     }
@@ -343,16 +344,17 @@ export class JSXParser extends Parser {
 
     parseJSXElementName(): JSXNode.JSXElementName {
         const node = this.createJSXNode();
-        let elementName = this.parseJSXIdentifier();
+        let elementName: JSXNode.JSXIdentifier | JSXNode.JSXMemberExpression = this.parseJSXIdentifier();
 
         if (this.matchJSX(':')) {
             const namespace = elementName;
             this.expectJSX(':');
             const name = this.parseJSXIdentifier();
-            elementName = this.finalize(node, new JSXNode.JSXNamespacedName(namespace, name));
-        } else if (this.matchJSX('.')) {
+            return this.finalize(node, new JSXNode.JSXNamespacedName(namespace, name));
+        }
+        else if (this.matchJSX('.')) {
             while (this.matchJSX('.')) {
-                const object = elementName;
+                const object: JSXNode.JSXIdentifier | JSXNode.JSXMemberExpression = elementName;
                 this.expectJSX('.');
                 const property = this.parseJSXIdentifier();
                 elementName = this.finalize(node, new JSXNode.JSXMemberExpression(object, property));

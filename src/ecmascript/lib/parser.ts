@@ -1,5 +1,5 @@
 import { assert } from './assert';
-import { ErrorHandler } from './error-handler';
+import { ErrorHandler, Error } from './error-handler';
 import { ParseDelegate, ParseOptions } from './esprima';
 import { Messages } from './messages';
 import {
@@ -170,7 +170,15 @@ interface DeclarationOptions {
   inFor: boolean;
 }
 
-export class Parser {
+export interface CanBeParser {
+  readonly config: Config;
+  tokens: TokenEntry[];
+  readonly errorHandler: ErrorHandler;
+  parseModule(): Module;
+  parseScript(): Script;
+}
+
+export class Parser implements CanBeParser {
   readonly config: Config;
   readonly delegate: ParseDelegate | null;
   readonly errorHandler: ErrorHandler;
@@ -1184,7 +1192,7 @@ export class Parser {
     }
   }
 
-  parseGroupExpression(): ArrowParameterPlaceHolderNode | Expression {
+  parseGroupExpression(): Expression {
     let expr: Expression | ArrowParameterPlaceHolderNode;
 
     this.expect('(');
@@ -1221,7 +1229,7 @@ export class Parser {
           const expressions: Expression[] = [];
 
           this.context.isAssignmentTarget = false;
-          expressions.push(expr);
+          expressions.push(expr as Expression);
           while (this.lookahead.type !== Token.EOF) {
             if (!this.match(',')) {
               break;
@@ -1292,7 +1300,7 @@ export class Parser {
                   this.reinterpretExpressionAsPattern(expr.expressions[i]);
                 }
               } else {
-                this.reinterpretExpressionAsPattern(expr);
+                this.reinterpretExpressionAsPattern(expr as Expression);
               }
 
               const parameters = isSequenceExpression(expr) ? expr.expressions : [expr];
@@ -1308,7 +1316,7 @@ export class Parser {
       }
     }
 
-    return expr;
+    return expr as Expression;
   }
 
   // https://tc39.github.io/ecma262/#sec-left-hand-side-expressions
@@ -1446,7 +1454,7 @@ export class Parser {
         this.context.isAssignmentTarget = true;
         this.expect('.');
         const property = this.parseIdentifierName();
-        expr = this.finalize(this.startNode(startToken), new StaticMemberExpression(expr, property));
+        expr = this.finalize(this.startNode(startToken), new StaticMemberExpression(expr as Expression, property));
       } else if (this.match('(')) {
         const asyncArrow = maybeAsync && startToken.lineNumber === this.lookahead.lineNumber;
         this.context.isBindingElement = false;
@@ -1455,7 +1463,7 @@ export class Parser {
         if (expr.type === Syntax.Import && args.length !== 1) {
           this.tolerateError(Messages.BadImportCallArity);
         }
-        expr = this.finalize(this.startNode(startToken), new CallExpression(expr, args));
+        expr = this.finalize(this.startNode(startToken), new CallExpression(expr as Expression, args));
         if (asyncArrow && this.match('=>')) {
           for (let i = 0; i < args.length; ++i) {
             this.reinterpretExpressionAsPattern(args[i]);
@@ -1472,17 +1480,17 @@ export class Parser {
         this.expect('[');
         const property = this.isolateCoverGrammar(this.parseExpression);
         this.expect(']');
-        expr = this.finalize(this.startNode(startToken), new ComputedMemberExpression(expr, property));
+        expr = this.finalize(this.startNode(startToken), new ComputedMemberExpression(expr as Expression, property));
       } else if (this.lookahead.type === Token.Template && this.lookahead.head) {
         const quasi = this.parseTemplateLiteral();
-        expr = this.finalize(this.startNode(startToken), new TaggedTemplateExpression(expr, quasi));
+        expr = this.finalize(this.startNode(startToken), new TaggedTemplateExpression(expr as Expression, quasi));
       } else {
         break;
       }
     }
     this.context.allowIn = previousAllowIn;
 
-    return expr;
+    return expr as Expression;
   }
 
   parseSuper(): Super {
@@ -1800,7 +1808,7 @@ export class Parser {
   }
 
   reinterpretAsCoverFormalsList(expr: BaseNode) {
-    let params: PatternParam[] = [expr];
+    let params: PatternParam[] = [expr as PatternParam];
     let options: {
       simple: boolean;
       stricted?: RawToken;
@@ -1972,7 +1980,7 @@ export class Parser {
       }
     }
 
-    return expr;
+    return expr as Expression;
   }
 
   // https://tc39.github.io/ecma262/#sec-comma-operator

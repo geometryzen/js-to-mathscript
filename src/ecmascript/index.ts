@@ -1,6 +1,6 @@
 export { Comment } from './lib/comment-handler';
 export { VERSION } from './lib/core';
-export { generate, GenerateOptions } from './lib/escodegen';
+export { FormatOptions, generate, GenerateOptions, MozillaOptions } from './lib/escodegen';
 export { parse, ParseDelegate, parseModule, ParseOptions, parseScript, tokenize } from './lib/esprima';
 export { generateRandomId } from './lib/generateRandomId';
 export { getLoopProtectorBlocks } from './lib/getLoopProtectorBlocks';
@@ -69,7 +69,6 @@ export {
     MethodDefinition,
     Module,
     NewExpression,
-
     ObjectExpression,
     ObjectExpressionProperty,
     ObjectPattern,

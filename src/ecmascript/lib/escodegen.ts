@@ -2,7 +2,7 @@
 import { BinaryPrecedence } from './BinaryPrecedence';
 import { isDecimalDigit, isIdentifierPart, isLineTerminator, isWhiteSpace } from './code';
 import { Comment } from './comment-handler';
-import { ArrayExpression, ArrayPattern, ArrowFunctionExpression, AssignmentExpression, AssignmentPattern, AwaitExpression, BaseNode, BinaryExpression, BindingPattern, BlockStatement, BreakStatement, CallExpression, CatchClause, ClassBody, ClassDeclaration, ClassExpression, ComputedMemberExpression, ConditionalExpression, ContinueStatement, DebuggerStatement, Directive, DoWhileStatement, ExportableDefaultDeclaration, ExportableNamedDeclaration, ExportAllDeclaration, ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier, Expression, ExpressionStatement, ForInStatement, ForOfStatement, ForStatement, FunctionDeclaration, FunctionExpression, FunctionParameter, Identifier, IfStatement, ImportDeclaration, ImportDefaultSpecifier, ImportNamespaceSpecifier, ImportSpecifier, isArrowFunctionExpression, isIdentifier, isLiteral, isProgram, isVariableDeclaration, LabeledStatement, Literal, MethodDefinition, Module, NewExpression, ObjectExpression, ObjectPattern, Property, ReturnStatement, Script, SequenceExpression, SpreadElement, Statement, SwitchCase, SwitchStatement, TaggedTemplateExpression, TemplateElement, TemplateLiteral, ThrowStatement, TryStatement, UnaryExpression, UpdateExpression, VariableDeclaration, VariableDeclarator, WhileStatement, WithStatement, YieldExpression } from './nodes';
+import { ArrayExpression, ArrayPattern, ArrowFunctionExpression, AssignmentExpression, AssignmentPattern, AwaitExpression, BinaryExpression, BindingPattern, BlockStatement, BreakStatement, CallExpression, CatchClause, ClassBody, ClassDeclaration, ClassExpression, ComputedMemberExpression, ConditionalExpression, ContinueStatement, DebuggerStatement, Directive, DoWhileStatement, ExportableDefaultDeclaration, ExportableNamedDeclaration, ExportAllDeclaration, ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier, Expression, ExpressionStatement, ForInStatement, ForOfStatement, ForStatement, FunctionDeclaration, FunctionExpression, FunctionParameter, Identifier, IfStatement, ImportDeclaration, ImportDefaultSpecifier, ImportNamespaceSpecifier, ImportSpecifier, isArrowFunctionExpression, isAssignmentPattern, isIdentifier, isLiteral, isProgram, isVariableDeclaration, LabeledStatement, Literal, MethodDefinition, Module, NewExpression, ObjectExpression, ObjectPattern, Property, ReturnStatement, Script, SequenceExpression, SpreadElement, Statement, SwitchCase, SwitchStatement, TaggedTemplateExpression, TemplateElement, TemplateLiteral, ThrowStatement, TryStatement, UnaryExpression, UpdateExpression, VariableDeclaration, VariableDeclarator, WhileStatement, WithStatement, YieldExpression } from './nodes';
 import { Precedence } from './Precedence';
 import { Syntax } from './syntax';
 
@@ -56,13 +56,13 @@ class SourceNode {
         // Nothing to see here.
     }
     join(sep: string): SourceNode {
-        throw new Error("Method not implemented.")
+        throw new Error(`join(sep=${sep}) method not implemented.`)
     }
     replaceRight(pattern: RegExp, replacement: string): SourceNode {
-        throw new Error("Method not implemented.")
+        throw new Error(`replaceRight(pattern=${pattern}, replacement=${replacement}) method not implemented.`)
     }
     toStringWithSourceMap(arg: { file: string, sourceRoot: unknown }): { code: string; map: { setSourceContent: (sourceMap: string, sourceContent: string) => void } } {
-        throw new Error("Method not implemented.")
+        throw new Error(`toStringWithSourceMap(arg=${JSON.stringify(arg)}) method not implemented.`)
         /*
         return {
             code: '', map: {
@@ -97,7 +97,7 @@ let escapeless: boolean;
 let hexadecimal: boolean;
 let json: unknown;
 let space: string;
-let parse: (arg: unknown) => Module | Script;
+// let parse: (arg: unknown) => Module | Script;
 
 // Flags
 const F_ALLOW_IN = 1;
@@ -134,7 +134,7 @@ const S_TTFF = F_ALLOW_IN | F_FUNC_BODY;
 function getDefaultOptions(): GenerateOptions {
     // default options
     return {
-        parse: null,
+        // parse: null,
         comment: false,
         format: {
             indent: {
@@ -486,15 +486,17 @@ function toSourceNodeWhenNeeded(generated: CODEOUT, node?: Identifier | Expressi
             if (generated instanceof SourceNode) {
                 return generated;
             } else {
-                return new SourceNode(null, null, sourceMap, generated, null);
+                return new SourceNode(null, null, sourceMap, generated as string | string[], null);
             }
         } else {
             if (node.loc) {
                 const loc = node.loc;
                 const start = loc.start;
-                return new SourceNode(start.line, start.column, sourceMap === true ? loc.source || null : sourceMap, generated, node.name || null);
+                // Ignore the name issue because we aren't doing source maps.
+                return new SourceNode(start.line, start.column, sourceMap === true ? loc.source || null : sourceMap, generated as string | string[], /*node.name ||*/ null);
             } else {
-                return new SourceNode(null, null, sourceMap, generated, node.name || null);
+                // Ignore the name issue because we aren't doing source maps.
+                return new SourceNode(null, null, sourceMap, generated as string | string[], /*node.name ||*/ null);
             }
         }
     }
@@ -566,7 +568,7 @@ function calculateSpaces(str: string): number {
 
 function adjustMultilineComment(value: string, specialBase?: string): string {
 
-    const array = value.split(/\r\n|[\r\n]/);
+    const array: string[] = value.split(/\r\n|[\r\n]/);
     let spaces = Number.MAX_VALUE;
 
     // first line doesn't have indentation
@@ -609,7 +611,8 @@ function adjustMultilineComment(value: string, specialBase?: string): string {
     for (let i = 1, len = array.length; i < len; ++i) {
         const sn = toSourceNodeWhenNeeded(addIndent(array[i].slice(spaces)));
         if (sourceMap) {
-            array[i] = (sn as SourceNode).join('');
+            // TODO: Definitely some risky behavior here.
+            array[i] = (sn as SourceNode).join('') as unknown as string;
         }
         else {
             array[i] = sn as string;
@@ -808,11 +811,14 @@ function generateVerbatim(expr: Expression, precedence: number) {
 function generateProgram(node: Module | Script) {
     // console.lg('generateInternal(node=...)');
     const codegen = new CodeGenerator();
-    if (codegen.isStatement(node)) {
-        return codegen.generateStatement(node, S_TFFF);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (codegen.isStatement(node as any)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return codegen.generateStatement(node as any, S_TFFF);
     }
     if (codegen.isExpression(node)) {
-        return codegen.generateExpression(node, Precedence.Sequence, E_TTT);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return codegen.generateExpression(node as any, Precedence.Sequence, E_TTT);
     }
     throw new Error('Unknown node type: ' + node.type);
 }
@@ -1112,19 +1118,21 @@ class CodeGenerator {
     }
     Property(expr: Property) {
         if (expr.kind === 'get' || expr.kind === 'set') {
-            return [expr.kind, noEmptySpace(), this.generatePropertyKey(expr.key, expr.computed), this.generateFunctionBody(expr.value)];
+            const prop = expr as unknown as MethodDefinition
+            return [expr.kind, noEmptySpace(), this.generatePropertyKey(expr.key, expr.computed), this.generateFunctionBody(prop.value)];
         }
 
         if (expr.shorthand) {
             const value = expr.value;
-            if (value.type === 'AssignmentPattern') {
+            if (isAssignmentPattern(value)) {
                 return this.AssignmentPattern(value, Precedence.Sequence, E_TTT);
             }
             return this.generatePropertyKey(expr.key, expr.computed);
         }
 
         if (expr.method) {
-            return [generateMethodPrefix(expr), this.generatePropertyKey(expr.key, expr.computed), this.generateFunctionBody(expr.value)];
+            const prop = expr as unknown as MethodDefinition
+            return [generateMethodPrefix(prop), this.generatePropertyKey(expr.key, expr.computed), this.generateFunctionBody(prop.value)];
         }
 
         return [this.generatePropertyKey(expr.key, expr.computed), ':' + space, this.generateExpression(expr.value, Precedence.Assignment, E_TTT)];
@@ -1188,13 +1196,13 @@ class CodeGenerator {
 
         let multiline = false;
         if (expr.properties.length === 1) {
-            const property = expr.properties[0];
+            const property = expr.properties[0] as Property;
             if (property.value.type !== Syntax.Identifier) {
                 multiline = true;
             }
         } else {
             for (let i = 0, iz = expr.properties.length; i < iz; ++i) {
-                const property = expr.properties[i];
+                const property = expr.properties[i] as Property;
                 if (!property.shorthand) {
                     multiline = true;
                     break;
@@ -1230,8 +1238,8 @@ class CodeGenerator {
         return generateIdentifier(expr);
     }
     ImportDefaultSpecifier(expr: ImportDefaultSpecifier) {
-        // DGH. Is this a bug? Should this be local property?
-        return generateIdentifier(expr.id);
+        // DGH. Is this a bug? Should this be local property (was id)?
+        return generateIdentifier(expr.local);
     }
     ImportNamespaceSpecifier(expr: ImportNamespaceSpecifier) {
         const result = ['*'];
@@ -1261,9 +1269,13 @@ class CodeGenerator {
         return result;
     }
     Literal(expr: Literal) {
+        // parse is not defined in the module because we disallow it in GenerateOptions.
+        /*
         if (Object.prototype.hasOwnProperty.call(expr, 'raw') && parse && extra.raw) {
             try {
-                const raw = parse(expr.raw).body[0].expression;
+                // TODO: What is happening here?
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const raw = (parse(expr.raw).body[0] as any).expression;
                 if (raw.type === Syntax.Literal) {
                     if (raw.value === expr.value) {
                         return expr.raw;
@@ -1273,6 +1285,7 @@ class CodeGenerator {
                 // not use raw property
             }
         }
+        */
 
         if (expr.value === null) {
             return 'null';
@@ -1292,10 +1305,10 @@ class CodeGenerator {
 
         return generateRegExp(expr.value);
     }
-    GeneratorExpression(expr: BaseNode) {
+    GeneratorExpression(expr: { type: string, body: Expression, blocks: Expression[], filter: Expression }) {
         return this.ComprehensionExpression(expr);
     }
-    ComprehensionExpression(expr: BaseNode) {
+    ComprehensionExpression(expr: { type: string, body: Expression, blocks: Expression[], filter: Expression }) {
         // GeneratorExpression should be parenthesized with (...), ComprehensionExpression with [...]
         // Due to https://bugzilla.mozilla.org/show_bug.cgi?id=883468 position of expr.body can differ in Spidermonkey and ES6
 
@@ -1334,7 +1347,7 @@ class CodeGenerator {
         result.push(expr.type === Syntax.GeneratorExpression ? ')' : ']');
         return result;
     }
-    ComprehensionBlock(expr: { left: BaseNode, of: 'of' | 'in', right: BaseNode }) {
+    ComprehensionBlock(expr: { left: Expression, of: 'of' | 'in', right: Expression }) {
         let fragment: string | SourceNode | CODEOUT[];
         const left = expr.left;
         if (isVariableDeclaration(left)) {
@@ -2322,7 +2335,8 @@ export interface MozillaOptions {
 }
 
 export interface GenerateOptions {
-    parse?: (arg: unknown) => Module | Script;
+    // TODO: This makes our encapsulation leaky.
+    // parse?: (arg: unknown) => Module | Script;
     comment?: boolean;
     file?: string;
     format?: FormatOptions;
@@ -2371,7 +2385,7 @@ export function generate(program: Module | Script, options?: GenerateOptions) {
     semicolons = options.format.semicolons;
     safeConcatenation = options.format.safeConcatenation;
     directive = options.directive;
-    parse = json ? null : options.parse;
+    // parse = json ? null : options.parse;
     sourceMap = options.sourceMap;
     sourceCode = options.sourceCode;
     preserveBlankLines = options.format.preserveBlankLines && sourceCode !== null;

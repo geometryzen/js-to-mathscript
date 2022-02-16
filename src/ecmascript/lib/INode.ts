@@ -4,14 +4,14 @@ export interface INode {
     arguments?: INode[];
     block?: INode;
     body?: INode | INode[];
-    callee?;
+    // callee?;
     cases?: INode[];
-    comments?;
+    // comments?;
     consequent?: INode | INode[];
     declarations?: INode[];
     discriminant?: INode;
     elements?: INode[] | null;
-    errors?;
+    // errors?;
     expression?: INode;
     expressions?: INode[];
     finalizer?: INode;
@@ -26,7 +26,7 @@ export interface INode {
     properties?: INode[];
     right?: INode;
     test?: INode;
-    tokens?;
+    // tokens?;
     type: string;
     update?: INode;
     value?: INode;

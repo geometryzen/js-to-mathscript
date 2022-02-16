@@ -1,5 +1,6 @@
 /* tslint:disable:max-classes-per-file */
 
+// Probably a bad idea to use the same name as something from the JavaScript libraries.
 export class Error {
     public name: string;
     public message: string;
@@ -25,7 +26,7 @@ export class ErrorHandler {
         this.errors.push(error);
     }
 
-    tolerate(error): void {
+    tolerate(error: Error): void {
         if (this.tolerant) {
             this.recordError(error);
         } else {
@@ -40,7 +41,7 @@ export class ErrorHandler {
         } catch (base) {
             /* istanbul ignore else */
             if (Object.create && Object.defineProperty) {
-                error = Object.create(base);
+                error = Object.create(base as Error);
                 Object.defineProperty(error, 'column', { value: column });
             }
         }

@@ -27,14 +27,20 @@ interface NodeInfo {
 }
 
 interface VisitableNode {
-    type: string;
-    value: string;
-    range: [number, number];
-    loc: SourceLocation;
-    leadingComments: Comment[];
-    innerComments: Comment[];
-    trailingComments: Comment[];
-    body: unknown[];
+    /**
+     * Now optional and can also take number to make consistent with TokenEntry.
+     */
+    type?: string | number;
+    /**
+     * Now optional and also takes number to make consistent with TokenEntry.
+     */
+    value?: string | number;
+    range?: [number, number];
+    loc?: SourceLocation;
+    leadingComments?: Comment[];
+    innerComments?: Comment[];
+    trailingComments?: Comment[];
+    body?: unknown[];
 }
 
 export class CommentHandler {
@@ -99,7 +105,7 @@ export class CommentHandler {
     findLeadingComments(metadata: MetaData): Comment[] {
         const leadingComments: Comment[] = [];
 
-        let target: { leadingComments: Comment[] };
+        let target: { leadingComments?: Comment[] };
         while (this.stack.length > 0) {
             const entry = this.stack[this.stack.length - 1];
             if (entry && entry.start >= metadata.start.offset) {
@@ -157,10 +163,10 @@ export class CommentHandler {
     }
 
     visitComment(node: VisitableNode, metadata: MetaData): void {
-        const type = node.type[0] === 'L' ? 'Line' : 'Block';
+        const type = (node.type as string)[0] === 'L' ? 'Line' : 'Block';
         const comment: Comment = {
             type: type,
-            value: node.value,
+            value: node.value as string,
         };
         if (node.range) {
             comment.range = node.range;
@@ -174,7 +180,7 @@ export class CommentHandler {
             const entry: Entry = {
                 comment: {
                     type: type,
-                    value: node.value,
+                    value: node.value as string,
                     range: [metadata.start.offset, metadata.end.offset],
                 },
                 start: metadata.start.offset,

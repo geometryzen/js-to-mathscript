@@ -1,6 +1,6 @@
 {
     "name": "@stemcstudio/js-to-mathscript",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "JavaScript to MathScript transpiler.",
     "browser": "build/browser/index.js",
     "main": "build/main/index.js",
@@ -18,7 +18,7 @@
         "docs:typedoc": "trash docs && typedoc --options typedoc.json",
         "pages": "npm run docs:typedoc && gh-pages -d docs",
         "pretest": "npm run build",
-        "prepublishOnly": "node check_publish_env.js && npm run build && npm test"
+        "prepublishOnly": "node check_publish_env.js && npm run build && npm test && npm run lint && npm run pages"
     },
     "keywords": [],
     "author": {

@@ -71,7 +71,7 @@ export type ReinterpretedExpressionPattern = BindingPattern | AssignmentPattern 
 
 export type PropertyKey = Identifier | Literal | Expression;
 
-export function isIdentifier(key: PropertyKey): key is Identifier {
+export function isIdentifier(key: { type: string }): key is Identifier {
   return key.type === Syntax.Identifier;
 }
 
@@ -107,8 +107,8 @@ export interface BaseNodeWithoutComments {
 }
 
 export interface BaseNode extends BaseNodeWithoutComments {
-  leadingComments: Comment[];
-  trailingComments: Comment[];
+  leadingComments?: Comment[];
+  trailingComments?: Comment[];
 }
 
 export class ArrayExpression implements BaseNode {
@@ -153,6 +153,8 @@ export class ArrowFunctionExpression implements BaseNode {
   readonly generator: boolean;
   readonly expression: boolean;
   readonly async: boolean;
+  readonly rest?: Identifier;
+  readonly defaults?: Expression[];
   constructor(params: (FunctionParameter | PatternParam)[], body: BlockStatement | Expression, expression: boolean) {
     this.type = Syntax.ArrowFunctionExpression;
     this.id = null;
@@ -671,6 +673,8 @@ export class FunctionDeclaration implements BaseNode {
   readonly generator: boolean;
   readonly expression: boolean;
   readonly async: boolean;
+  readonly rest?: Identifier;
+  readonly defaults?: Expression[];
   constructor(id: Identifier | null, params: FunctionParameter[], body: BlockStatement, generator: boolean) {
     this.type = Syntax.FunctionDeclaration;
     this.id = id;
@@ -695,6 +699,8 @@ export class FunctionExpression implements BaseNode {
   readonly generator: boolean;
   readonly expression: boolean;
   readonly async: boolean;
+  readonly rest?: Identifier;
+  readonly defaults?: Expression[];
   constructor(id: Identifier | null, params: FunctionParameter[], body: BlockStatement | Expression, generator: boolean) {
     this.type = Syntax.FunctionExpression;
     this.id = id;
@@ -889,8 +895,8 @@ export class Module implements BaseNode {
     this.body = body;
     this.sourceType = 'module';
   }
-  leadingComments: Comment[];
-  trailingComments: Comment[];
+  leadingComments?: Comment[];
+  trailingComments?: Comment[];
   loc?: SourceLocation;
   range?: [number, number];
 }
@@ -1047,8 +1053,8 @@ export class Script implements BaseNode {
     this.body = body;
     this.sourceType = 'script';
   }
-  leadingComments: Comment[];
-  trailingComments: Comment[];
+  leadingComments?: Comment[];
+  trailingComments?: Comment[];
   loc?: SourceLocation;
   range?: [number, number];
 }

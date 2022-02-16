@@ -81,42 +81,83 @@ export interface ParseDelegate {
 export interface OperatorTransform {
   /**
    * The nature of the transformation.
+   * 
+   * 'rename' replaces the name of the operator with the value property.
+   * 
+   * 'function' replaces the operator with a function call with a name given by the value property.
+   * 
+   * 'error' causes an exception to be raised if the operator is detected. The value property becomes the error message.
    */
   kind: 'rename' | 'function' | 'error';
   /**
-   * The transformed name.
+   * The transformed value. How it is used depends on the kind property.
+   * 
+   * 'rename': value is treated as the new operator name.
+   * 'function': value is treated as the new function name.
+   * 'error': value is treated as the error message.
    */
   value: string;
 }
 
+/**
+ * The combined parsing and transpilation customization.
+ * These properties affect the parsing and AST transformations before code generation. 
+ */
 export interface TranspileSettings extends ParseOptions {
+  /**
+   * Specifies the timeout value in milliseconds if the code has loop checks inserted.
+   */
   timeout?: number;
+  /**
+   * Used to determine whether timeout checks will be added to the code to prevent infinite loops.
+   */
   noLoopCheck?: boolean;
+  /**
+   * The namespace qualification to use for replacements of operators with functions.
+   */
   namespace?: string;
   /**
-   * The replacements of unary operators that will be made.
+   * The replacements of binary operators that will be made.
+   * The name key is used to match the operator symbol.
+   * The mapped transform is used to specify the action to be performed.
    */
   binOp: { [name: string]: OperatorTransform };
   /**
-  * The replacements of unary operators that will be made.
-  */
+   * The replacements of unary operators that will be made.
+   * The name key is used to match the operator symbol.
+   * The mapped transform is used to specify the action to be performed.
+   */
   unaryOp: { [name: string]: OperatorTransform };
 }
 
 /**
- *
+ * The combined parsing and transpilation customization.
+ * These properties affect the parsing and AST transformations before code generation. 
  */
 export interface TranspileOptions extends ParseOptions {
+  /**
+   * Specifies the timeout value in milliseconds if the code has loop checks inserted.
+   */
   timeout?: number;
+  /**
+   * Used to determine whether timeout checks will be added to the code to prevent infinite loops.
+   */
   noLoopCheck?: boolean;
+  /**
+   * The namespace qualification to use for replacements of operators with functions.
+   */
   namespace?: string;
   /**
-   * The replacements of unary operators that will be made.
+   * The replacements of binary operators that will be made.
+   * The name key is used to match the operator symbol.
+   * The mapped transform is used to specify the action to be performed.
    */
   binOp?: { [name: string]: OperatorTransform };
   /**
-  * The replacements of unary operators that will be made.
-  */
+   * The replacements of unary operators that will be made.
+   * The name key is used to match the operator symbol.
+   * The mapped transform is used to specify the action to be performed.
+   */
   unaryOp?: { [name: string]: OperatorTransform };
 }
 
@@ -133,15 +174,20 @@ function transpileTree(code: string, options: TranspileSettings, delegate?: Pars
 }
 
 /**
- * This is the function that we export.
+ * Transpiles JavaScript Expression syntax to "MathScript", a similar syntax to JavaScript but perhaps with different operator symbols.
+ * Examples of MathScript(s) include Algebrite (a symbolic algebra library), and JessieCode (a scripting language for JSXGraph).
+ * Typical use cases include renaming operators, converting operators to function calls, and rejecting operators as syntax errors.
+ * @param code The source code to be transpiled.
+ * @param transpileOptions The options for both parsing and mutation.
+ * @param generateOptions The options for code generation.
  */
-export function jsToMathScript(code: string, transpileOptions?: TranspileOptions, delegate?: ParseDelegate, generateOptions?: GenerateOptions): { code: string } {
+export function jsToMathScript(code: string, transpileOptions?: TranspileOptions, generateOptions?: GenerateOptions/*, delegate?: ParseDelegate*/): { code: string } {
   const traceThis = "..."
   if (code === traceThis) {
     console.log(`transpile(code=${JSON.stringify(code)} transpileOptions=${JSON.stringify(transpileOptions)})`);
   }
   const transpileSettings: TranspileSettings = Object.assign({ binOp: {}, unaryOp: {} }, transpileOptions)
-  const tree = transpileTree(code, transpileSettings, delegate);
+  const tree = transpileTree(code, transpileSettings/*, delegate*/);
   if (code === traceThis) {
     console.log(JSON.stringify(tree, null, 2));
   }
